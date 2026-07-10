@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ko" id="htmlRoot">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Aaron's Roll N Comb — Service Menu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Outfit:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Roll N Comb" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("./sw.js")
+            .then((reg) => console.log("SW 등록 성공:", reg.scope))
+            .catch((err) => console.log("SW 등록 실패:", err));
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <!-- ══ 언어 전환 버튼 — 좌측 상단 고정 ══ -->
+    <button class="lang-toggle" id="langToggle">
+      <span class="lang-opt" id="langKo">한</span>
+      <span class="lang-sep">|</span>
+      <span class="lang-opt" id="langEn">EN</span>
+    </button>
+
+    <!-- ══ 좌측: 메뉴 패널 ══ -->
+    <div class="left-panel">
+      <!-- 브랜드 헤더 -->
+      <header class="brand-header">
+        <div class="logo-wrap">
+          <img
+            src="logo2.png"
+            alt="Aaron's Roll N Comb Hair Salon"
+            class="brand-logo-img"
+          />
+        </div>
+        <div class="header-rule">
+          <span class="rule-line"></span>
+          <span class="rule-diamond">◆</span>
+          <span class="rule-line"></span>
+        </div>
+        <p class="brand-location">
+          Grand InterContinental Seoul Parnas · 삼성동 파르나스몰
+        </p>
+      </header>
+
+      <!-- 카테고리 탭 -->
+      <nav class="category-nav" id="categoryNav">
+        <button
+          class="cat-tab active"
+          data-cat="cut"
+          data-ko="컷"
+          data-en="CUT"
+        >
+          컷
+        </button>
+        <button class="cat-tab" data-cat="perm" data-ko="펌" data-en="PERM">
+          펌
+        </button>
+        <button class="cat-tab" data-cat="color" data-ko="염색" data-en="COLOR">
+          염색
+        </button>
+        <button
+          class="cat-tab"
+          data-cat="clinic"
+          data-ko="클리닉"
+          data-en="CLINIC"
+        >
+          클리닉
+        </button>
+        <button
+          class="cat-tab"
+          data-cat="dry"
+          data-ko="드라이"
+          data-en="STYLING"
+        >
+          드라이
+        </button>
+        <button
+          class="cat-tab"
+          data-cat="shampoo"
+          data-ko="샴푸"
+          data-en="SHAMPOO"
+        >
+          샴푸
+        </button>
+      </nav>
+
+      <!-- 메뉴 카드 목록 -->
+      <div class="menu-list" id="menuList"></div>
+    </div>
+
+    <!-- ══ 우측: 주문 요약 ══ -->
+    <div class="right-panel">
+      <div class="right-inner">
+        <div class="summary-hd">
+          <h2 class="summary-title" data-ko="선택 내역" data-en="Selection">
+            선택 내역
+          </h2>
+          <span class="summary-count" id="summaryCount">0개 선택</span>
+        </div>
+
+        <div class="sel-list" id="selectedList">
+          <div class="empty-state" id="emptyState">
+            <span class="empty-icon">✦</span>
+            <p
+              class="empty-txt"
+              data-ko="서비스를 선택해 주세요"
+              data-en="Please select a service"
+            >
+              서비스를 선택해 주세요
+            </p>
+            <p
+              class="empty-sub"
+              data-ko="메뉴를 터치하면 합계에 추가됩니다"
+              data-en="Tap a service to add to your total"
+            >
+              메뉴를 터치하면 합계에 추가됩니다
+            </p>
+          </div>
+        </div>
+
+        <div class="panel-rule">
+          <span class="pr-line"></span><span class="pr-gem">◆</span
+          ><span class="pr-line"></span>
+        </div>
+
+        <div class="discount-zone">
+          <h3
+            class="zone-title"
+            data-ko="멤버십 / 할인 적용"
+            data-en="Membership & Discount"
+          >
+            멤버십 / 할인 적용
+          </h3>
+
+          <div class="membership-row">
+            <div class="membership-txt">
+              <span class="mem-name">A Membership</span>
+              <span
+                class="mem-desc"
+                data-ko="컷·드라이 10% / 펌·염색 15% 할인"
+                data-en="Cut·Dry 10% / Perm·Color 15% off"
+                >컷·드라이 10% / 펌·염색 15% 할인</span
+              >
+            </div>
+            <label class="toggle-wrap">
+              <input type="checkbox" id="membershipToggle" />
+              <span class="toggle-track"
+                ><span class="toggle-knob"></span
+              ></span>
+            </label>
+          </div>
+
+          <div class="rate-row">
+            <span
+              class="rate-lbl"
+              data-ko="추가 할인율"
+              data-en="Extra Discount"
+              >추가 할인율</span
+            >
+            <div class="rate-ctrl">
+              <button class="rate-btn" id="discountMinus">−</button>
+              <span class="rate-val"
+                ><span id="discountValue">0</span
+                ><span class="rate-pct">%</span></span
+              >
+              <button class="rate-btn" id="discountPlus">+</button>
+            </div>
+          </div>
+
+          <div class="breakdown" id="discountBreakdown"></div>
+        </div>
+
+        <div class="panel-rule">
+          <span class="pr-line"></span><span class="pr-gem">◆</span
+          ><span class="pr-line"></span>
+        </div>
+
+        <div class="total-zone">
+          <div class="total-row">
+            <span class="total-lbl" data-ko="소계" data-en="Subtotal"
+              >소계</span
+            >
+            <span class="total-val" id="subtotalDisplay">—</span>
+          </div>
+          <div
+            class="total-row disc-row"
+            id="discountRow"
+            style="display: none"
+          >
+            <span class="total-lbl" id="discountLabel">할인</span>
+            <span class="total-val disc-val" id="discountDisplay">—</span>
+          </div>
+          <div class="grand-row">
+            <span class="grand-lbl" data-ko="합계" data-en="Total">합계</span>
+            <span class="grand-val" id="totalDisplay">—</span>
+          </div>
+        </div>
+
+        <button
+          class="reset-btn"
+          id="resetBtn"
+          data-ko="↺ 전체 초기화"
+          data-en="↺ Reset All"
+        >
+          ↺ 전체 초기화
+        </button>
+
+        <div class="mem-info-card">
+          <div
+            class="mic-header"
+            data-ko="A Membership 안내사항"
+            data-en="A Membership Info"
+          >
+            A Membership 안내사항
+          </div>
+          <div class="mic-body">
+            <p
+              data-ko="선불권 멤버십 가입 시 최대 <strong>10~15% 할인</strong> 적용"
+              data-en="Prepaid membership: up to <strong>10–15% discount</strong>"
+            >
+              선불권 멤버십 가입 시 최대 <strong>10~15% 할인</strong> 적용
+            </p>
+            <div class="mic-grid">
+              <div class="mic-row">
+                <span class="mic-dot">◆</span>
+                <span data-ko="컷 · 드라이" data-en="Cut · Dry"
+                  >컷 · 드라이</span
+                >
+                <strong>10% OFF</strong>
+              </div>
+              <div class="mic-row">
+                <span class="mic-dot">◆</span>
+                <span data-ko="펌 · 염색" data-en="Perm · Color"
+                  >펌 · 염색</span
+                >
+                <strong>15% OFF</strong>
+              </div>
+            </div>
+            <p
+              class="mic-note"
+              data-ko="※ 부분 시술, 클리닉은 멤버십 할인 제외"
+              data-en="※ Partial treatments & clinic services excluded"
+            >
+              ※ 부분 시술, 클리닉은 멤버십 할인 제외
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
