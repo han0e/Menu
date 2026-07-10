@@ -395,6 +395,7 @@ function renderMenu() {
     const sel  = selectedIds.has(item.id);
     const card = document.createElement('div');
     card.className = 'menu-card' + (sel ? ' selected' : '');
+    card.dataset.id = item.id;
     card.style.animationDelay = `${idx * 0.04}s`;
 
     const name = getLang(item.name);
@@ -434,21 +435,26 @@ function renderMenu() {
 
 // ── 토글 ──
 function toggle(id) {
+  const targetItem = MENU_DATA.find(item => item.id === id);
+  if (!targetItem) return;
+
   if (selectedIds.has(id)) {
     selectedIds.delete(id);
+    const cardEl = $menuList.querySelector(`[data-id="${id}"]`);
+    if (cardEl) cardEl.classList.remove('selected');
   } else {
-    const targetItem = MENU_DATA.find(item => item.id === id);
-    if (targetItem) {
-      selectedIds.forEach(selectedId => {
-        const item = MENU_DATA.find(i => i.id === selectedId);
-        if (item && item.category === targetItem.category) {
-          selectedIds.delete(selectedId);
-        }
-      });
-    }
+    selectedIds.forEach(selectedId => {
+      const item = MENU_DATA.find(i => i.id === selectedId);
+      if (item && item.category === targetItem.category) {
+        selectedIds.delete(selectedId);
+        const cardEl = $menuList.querySelector(`[data-id="${selectedId}"]`);
+        if (cardEl) cardEl.classList.remove('selected');
+      }
+    });
     selectedIds.add(id);
+    const cardEl = $menuList.querySelector(`[data-id="${id}"]`);
+    if (cardEl) cardEl.classList.add('selected');
   }
-  renderMenu();
   renderSummary();
   updateCount();
 }
