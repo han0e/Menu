@@ -555,15 +555,69 @@ function addBkRow(label, amt) {
 
 // ── 이벤트 ──
 
-// 카테고리 탭
+// 카테고리 전환 공통 함수
+function switchCategory(cat) {
+  currentCat = cat;
+  $categoryNav.querySelectorAll('.cat-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cat === cat);
+  });
+  renderMenu();
+  
+  // 탭바가 스크롤 영역 밖으로 밀려나면 자동 스크롤
+  const activeTab = $categoryNav.querySelector('.cat-tab.active');
+  if (activeTab) {
+    activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+}
+
+// 카테고리 탭 클릭 이벤트
 $categoryNav.querySelectorAll('.cat-tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    $categoryNav.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentCat = btn.dataset.cat;
-    renderMenu();
+    switchCategory(btn.dataset.cat);
   });
 });
+
+// 터치 스와이프 감지
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+const SWIPE_THRESHOLD = 60; // 스와이프 최소 드래그 임계값 (px)
+
+$menuList.addEventListener('touchstart', e => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+$menuList.addEventListener('touchend', e => {
+  touchEndX = e.changedTouches[0].screenX;
+  touchEndY = e.changedTouches[0].screenY;
+  handleSwipe();
+}, { passive: true });
+
+function handleSwipe() {
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+
+  // 가로 드래그가 세로 드래그보다 크고, 최소 드래그 임계값을 넘을 경우
+  if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > SWIPE_THRESHOLD) {
+    const tabs = Array.from($categoryNav.querySelectorAll('.cat-tab'));
+    const cats = tabs.map(btn => btn.dataset.cat);
+    const currIdx = cats.indexOf(currentCat);
+
+    if (diffX < 0) {
+      // 왼쪽으로 스와이프 -> 다음 카테고리
+      if (currIdx < cats.length - 1) {
+        switchCategory(cats[currIdx + 1]);
+      }
+    } else {
+      // 오른쪽으로 스와이프 -> 이전 카테고리
+      if (currIdx > 0) {
+        switchCategory(cats[currIdx - 1]);
+      }
+    }
+  }
+}
 
 // 멤버십
 $membershipToggle.addEventListener('change', () => {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "menu-cache-v2";
+const CACHE_NAME = "menu-cache-v5";
 const urlsToCache = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const urlsToCache = [
 
 // 설치 시 캐시 저장
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)),
   );
@@ -37,6 +38,6 @@ self.addEventListener("activate", (event) => {
           }
         }),
       );
-    }),
+    }).then(() => self.clients.claim())
   );
 });

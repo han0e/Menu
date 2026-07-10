@@ -107,12 +107,6 @@ body { display: flex; }
   width: auto;
   max-width: 72%;
   object-fit: contain;
-  /* 흰색 로고 → 따뜻한 샴페인 골드 (hue -10deg = 적황색 방향) */
-  filter: sepia(1) saturate(3) brightness(0.88) hue-rotate(-10deg);
-  transition: filter var(--transition);
-}
-.brand-logo-img:hover {
-  filter: sepia(1) saturate(3.5) brightness(0.96) hue-rotate(-10deg);
 }
 
 .header-rule {
