@@ -421,9 +421,31 @@ body { display: flex; }
 /* ── 요약 헤더 ── */
 .summary-hd {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   margin-bottom: 16px;
+}
+
+.sh-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.reset-link {
+  background: none;
+  border: none;
+  color: var(--txt-50);
+  font-size: var(--fs-sm);
+  font-family: var(--sans);
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color var(--transition);
+  padding: 2px 0;
+}
+.reset-link:hover {
+  color: var(--gold-main);
 }
 
 .summary-title {
@@ -748,31 +770,7 @@ body { display: flex; }
   letter-spacing: -0.5px;
 }
 
-/* ── 초기화 버튼 ── */
-.reset-btn {
-  margin-top: 16px;
-  width: 100%;
-  padding: 13px;
-  background: none;
-  border: 1px solid var(--bdr-md);
-  border-radius: var(--radius);
-  color: var(--txt-50);
-  font-family: var(--sans);
-  font-size: var(--fs-md);        /* ↑ 15px */
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
-  letter-spacing: 0.3px;
-}
-.reset-btn:hover {
-  border-color: rgba(255,255,255,0.35);
-  color: var(--txt-100);
-  background: rgba(255,255,255,0.06);
-}
+
 
 /* ── 멤버십 안내 카드 ── */
 .mem-info-card {

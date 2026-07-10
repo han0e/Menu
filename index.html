@@ -113,10 +113,15 @@
     <div class="right-panel">
       <div class="right-inner">
         <div class="summary-hd">
-          <h2 class="summary-title" data-ko="선택 내역" data-en="Selection">
-            선택 내역
-          </h2>
-          <span class="summary-count" id="summaryCount">0개 선택</span>
+          <div class="sh-left">
+            <h2 class="summary-title" data-ko="선택 내역" data-en="Selection">
+              선택 내역
+            </h2>
+            <span class="summary-count" id="summaryCount">0개 선택</span>
+          </div>
+          <button class="reset-link" id="resetBtn" data-ko="초기화" data-en="Reset">
+            초기화
+          </button>
         </div>
 
         <div class="sel-list" id="selectedList">
@@ -216,15 +221,6 @@
             <span class="grand-val" id="totalDisplay">—</span>
           </div>
         </div>
-
-        <button
-          class="reset-btn"
-          id="resetBtn"
-          data-ko="↺ 전체 초기화"
-          data-en="↺ Reset All"
-        >
-          ↺ 전체 초기화
-        </button>
 
         <div class="mem-info-card">
           <div
