@@ -1,0 +1,267 @@
+import { useState, useEffect } from 'react';
+import LeftPanel from '../components/LeftPanel';
+import RightPanel from '../components/RightPanel';
+import SignatureModal from '../components/SignatureModal';
+import { T } from '../data/menuData'; // MENU_DATA is no longer imported
+import { supabase } from '../supabaseClient';
+
+export default function Main({ session }) {
+  const [currentLang, setCurrentLang] = useState('ko');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [membershipOn, setMembershipOn] = useState(false);
+  const [customDiscount, setCustomDiscount] = useState(0);
+  const [currentCat, setCurrentCat] = useState('cut');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Data states
+  const [categories, setCategories] = useState([]);
+  const [menuData, setMenuData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDbData();
+  }, []);
+
+  const fetchDbData = async () => {
+    try {
+      // 1. Fetch categories
+      const { data: catData, error: catError } = await supabase
+        .from('categories')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (catError) {
+        alert('카테고리 불러오기 실패: ' + catError.message);
+        throw catError;
+      }
+
+      // 2. Fetch menu items
+      const { data: menuItemsData, error: menuError } = await supabase
+        .from('menu_items')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      if (menuError) {
+        alert('메뉴 불러오기 실패: ' + menuError.message);
+        throw menuError;
+      }
+      
+      if (!catData || catData.length === 0) {
+        alert('카테고리 데이터가 0개입니다. DB에 데이터가 없습니다!');
+      }
+
+      // Transform to match old static structure
+      const formattedMenus = menuItemsData.map(dbItem => ({
+        id: dbItem.id,
+        category: dbItem.category_id,
+        name: { ko: dbItem.name_ko, en: dbItem.name_en, zh: dbItem.name_zh },
+        badge: dbItem.badge,
+        time: dbItem.time_ko ? { ko: dbItem.time_ko, en: dbItem.time_en, zh: dbItem.time_zh } : undefined,
+        price: dbItem.price,
+        desc: dbItem.desc_ko ? { ko: dbItem.desc_ko, en: dbItem.desc_en, zh: dbItem.desc_zh } : undefined,
+        subItems: dbItem.sub_items_ko ? { ko: dbItem.sub_items_ko, en: dbItem.sub_items_en, zh: dbItem.sub_items_zh } : undefined,
+        membershipEligible: dbItem.membership_eligible,
+        membershipRate: dbItem.membership_rate,
+        lengthExtra: dbItem.length_extra
+      }));
+
+      setCategories(catData || []);
+      setMenuData(formattedMenus);
+      if (catData && catData.length > 0) {
+        setCurrentCat(catData[0].id);
+      }
+    } catch (err) {
+      console.error('Error fetching DB data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleItem = (id) => {
+    const targetItem = menuData.find(item => item.id === id);
+    if (!targetItem) return;
+
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.forEach(selectedId => {
+          const item = menuData.find(i => i.id === selectedId);
+          if (item && item.category === targetItem.category) {
+            next.delete(selectedId);
+          }
+        });
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const resetAll = () => {
+    setSelectedIds(new Set());
+    setMembershipOn(false);
+    setCustomDiscount(0);
+  };
+
+  const setLang = (lang) => {
+    setCurrentLang(lang);
+  };
+
+  const dataUrlToBlob = (dataUrl) => {
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  const handleSignatureSubmit = async (formData) => {
+    try {
+      // 1. Calculate totals
+      const list = menuData.filter(i => selectedIds.has(i.id));
+      let subtotal = 0, memDisc = 0, customDisc = 0;
+      
+      list.forEach(item => {
+        subtotal += item.price;
+        const mRate = (!membershipOn || !item.membershipEligible) ? 0 : (item.membershipRate || 0);
+        const afterMem = Math.round(item.price * (1 - mRate / 100));
+        memDisc += (item.price - afterMem);
+        customDisc += Math.round(afterMem * customDiscount / 100);
+      });
+      const totalDisc = memDisc + customDisc;
+      const finalTotal = subtotal - totalDisc;
+
+      // 2. Upload Signature to Supabase Storage
+      let signatureUrl = '';
+      if (formData.signatureDataUrl) {
+        // Only try to upload if we have a real supabase URL configured
+        if (import.meta.env.VITE_SUPABASE_URL) {
+          const blob = dataUrlToBlob(formData.signatureDataUrl);
+          const fileName = `sig_${Date.now()}_${Math.random().toString(36).substring(7)}.png`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('signatures')
+            .upload(fileName, blob, { contentType: 'image/png' });
+            
+          if (uploadError) throw uploadError;
+          
+          const { data: publicUrlData } = supabase.storage
+            .from('signatures')
+            .getPublicUrl(fileName);
+            
+          signatureUrl = publicUrlData.publicUrl;
+        } else {
+          // If no Supabase configured, just store the base64 temporarily (or fake it)
+          signatureUrl = 'data:image/png;base64,...'; 
+        }
+      }
+
+      // 3. Insert Order
+      if (import.meta.env.VITE_SUPABASE_URL) {
+        const { data: orderData, error: orderError } = await supabase.from('orders').insert({
+          designer_id: session?.user?.id || null,
+          customer_name: null,
+          customer_phone: null,
+          total_price: finalTotal,
+          discount_amount: totalDisc,
+          membership_applied: membershipOn,
+          signature_url: signatureUrl,
+          terms_agreed: true
+        }).select().single();
+
+        if (orderError) throw orderError;
+
+        // 4. Insert Order Items
+        const orderItems = list.map(item => ({
+          order_id: orderData.id,
+          menu_item_id: item.id,
+          price_at_time: item.price
+        }));
+
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+        if (itemsError) throw itemsError;
+      }
+
+      if (currentLang === 'ko') {
+        alert('결제가 성공적으로 처리되었습니다.');
+      } else if (currentLang === 'zh') {
+        alert('付款已成功处理。');
+      } else {
+        alert('Order successfully processed.');
+      }
+      setIsModalOpen(false);
+      resetAll();
+
+    } catch (error) {
+      console.error('Error submitting order:', error);
+      if (currentLang === 'ko') {
+        alert('처리 중 오류가 발생했습니다: ' + error.message);
+      } else if (currentLang === 'zh') {
+        alert('处理订单时出错: ' + error.message);
+      } else {
+        alert('Error processing order: ' + error.message);
+      }
+    }
+  };
+
+  if (loading) {
+    return <div style={{ color: 'white', padding: 20 }}>Loading menu...</div>;
+  }
+
+  return (
+    <>
+      <div className="lang-toggle">
+        <span 
+          className={`lang-opt ${currentLang === 'ko' ? 'active' : ''}`}
+          onClick={() => setLang('ko')}
+        >한</span>
+        <span className="lang-sep">|</span>
+        <span 
+          className={`lang-opt ${currentLang === 'en' ? 'active' : ''}`}
+          onClick={() => setLang('en')}
+        >EN</span>
+        <span className="lang-sep">|</span>
+        <span 
+          className={`lang-opt ${currentLang === 'zh' ? 'active' : ''}`}
+          onClick={() => setLang('zh')}
+        >中</span>
+      </div>
+      
+      <LeftPanel 
+        currentLang={currentLang}
+        currentCat={currentCat}
+        setCurrentCat={setCurrentCat}
+        selectedIds={selectedIds}
+        toggleItem={toggleItem}
+        T={T}
+        MENU_DATA={menuData}
+        CATEGORIES={categories}
+      />
+      
+      <RightPanel 
+        currentLang={currentLang}
+        selectedIds={selectedIds}
+        toggleItem={toggleItem}
+        membershipOn={membershipOn}
+        setMembershipOn={setMembershipOn}
+        customDiscount={customDiscount}
+        setCustomDiscount={setCustomDiscount}
+        resetAll={resetAll}
+        T={T}
+        MENU_DATA={menuData}
+        onProceed={() => setIsModalOpen(true)}
+      />
+
+      <SignatureModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSignatureSubmit}
+        currentLang={currentLang}
+      />
+    </>
+  );
+}
+
+
