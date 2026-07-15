@@ -38,6 +38,7 @@ CREATE TABLE public.orders (
   membership_applied boolean DEFAULT false,
   signature_url text NOT NULL,
   language text DEFAULT 'ko',
+  memo text,
   terms_agreed boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
