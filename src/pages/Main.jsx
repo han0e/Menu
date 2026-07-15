@@ -64,10 +64,13 @@ export default function Main({ session }) {
         lengthExtra: dbItem.length_extra
       }));
 
-      setCategories(catData || []);
+      setCategories(catData ? catData.filter(c => c.id !== 'custom_cat') : []);
       setMenuData(formattedMenus);
       if (catData && catData.length > 0) {
-        setCurrentCat(catData[0].id);
+        const validCats = catData.filter(c => c.id !== 'custom_cat');
+        if (validCats.length > 0) {
+          setCurrentCat(validCats[0].id);
+        }
       }
     } catch (err) {
       console.error('Error fetching DB data:', err);
@@ -203,12 +206,12 @@ export default function Main({ session }) {
   };
 
   if (loading) {
-    return <div style={{ color: 'white', padding: 20 }}>Loading menu...</div>;
+    return <div key="loading-screen" className="loading-txt">메뉴 불러오는 중...</div>;
   }
 
   return (
     <>
-      <div className="lang-toggle">
+      <div key="lang-toggle" className="lang-toggle">
         <span 
           className={`lang-opt ${currentLang === 'ko' ? 'active' : ''}`}
           onClick={() => setLang('ko')}

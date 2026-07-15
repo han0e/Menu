@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import UserHeaderMenu from '../components/UserHeaderMenu';
 import '../index.css';
 
 const EditIcon = () => (
@@ -17,6 +18,13 @@ const TrashIcon = () => (
   </svg>
 );
 
+const SettingsIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', verticalAlign: 'middle', marginBottom: '2px' }}>
+    <circle cx="12" cy="12" r="3"></circle>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+  </svg>
+);
+
 export default function History({ session }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -28,6 +36,8 @@ export default function History({ session }) {
   // Inline Edit States
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editMemo, setEditMemo] = useState('');
+  const [customMenuMode, setCustomMenuMode] = useState(false);
+  const [customMenuPrice, setCustomMenuPrice] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editItems, setEditItems] = useState([]);
 
@@ -69,7 +79,7 @@ export default function History({ session }) {
     try {
       const { data, error } = await supabase.from('menu_items').select('*');
       if (!error && data) {
-        setAllMenus(data);
+        setAllMenus(data.filter(m => m.id !== 'custom'));
       }
     } catch (err) {
       console.error(err);
@@ -109,11 +119,14 @@ export default function History({ session }) {
   const openEdit = (order, e) => {
     e.stopPropagation();
     e.preventDefault();
-    setEditingOrderId(order.id);
+    setEditPrice(order.total_price);
     setEditMemo(order.memo || '');
+    setCustomMenuMode(false);
+    setCustomMenuPrice('');
     setEditPrice(order.total_price || 0);
     // Deep copy order_items for editing
     setEditItems(order.order_items ? JSON.parse(JSON.stringify(order.order_items)) : []);
+    setEditingOrderId(order.id);
   };
 
   const cancelEdit = (e) => {
@@ -127,6 +140,13 @@ export default function History({ session }) {
   const addEditItem = (e) => {
     const menuId = e.target.value;
     if (!menuId) return;
+
+    if (menuId === 'custom') {
+      setCustomMenuMode(true);
+      e.target.value = '';
+      return;
+    }
+
     const menuObj = allMenus.find(m => m.id === menuId);
     if (!menuObj) return;
 
@@ -146,6 +166,22 @@ export default function History({ session }) {
     const itemToRemove = editItems[idx];
     setEditItems(prev => prev.filter((_, i) => i !== idx));
     setEditPrice(prev => Math.max(0, Number(prev) - Number(itemToRemove.price_at_time)));
+  };
+
+  const handleAddCustomMenu = () => {
+    if (!customMenuPrice) return;
+    const price = Number(customMenuPrice.replace(/[^0-9]/g, ''));
+    
+    const newItem = {
+      menu_item_id: 'custom',
+      price_at_time: price,
+      menu_items: { name_ko: '기타 시술 (직접 입력)', name_en: 'Custom Item' }
+    };
+
+    setEditItems(prev => [...prev, newItem]);
+    setEditPrice(prev => Number(prev) + price);
+    setCustomMenuMode(false);
+    setCustomMenuPrice('');
   };
 
   const saveEdit = async (orderId) => {
@@ -208,15 +244,12 @@ export default function History({ session }) {
   return (
     <div className="history-page">
       <div className="history-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>
+        <button className="back-btn" onClick={() => navigate('/')}>
           ← 돌아가기
         </button>
         <h1 className="history-title">결제 내역 조회</h1>
         <div className="history-header-right">
-          <div className="designer-badge">
-            {session?.user?.user_metadata?.display_name || '디자이너'}님
-          </div>
-          <button className="logout-btn" onClick={handleLogout}>로그아웃</button>
+          <UserHeaderMenu session={session} />
         </div>
       </div>
 
@@ -270,12 +303,28 @@ export default function History({ session }) {
                             </li>
                           ))}
                         </ul>
-                        <select className="add-item-select" onChange={addEditItem} defaultValue="">
-                          <option value="" disabled>+ 시술 추가하기</option>
-                          {allMenus.map(m => (
-                            <option key={m.id} value={m.id}>{m.name_ko} (+{m.price.toLocaleString()}원)</option>
-                          ))}
-                        </select>
+                        {customMenuMode ? (
+                          <div className="custom-menu-input-row" style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                            <input 
+                              type="text" 
+                              placeholder="가격 (숫자만 입력)" 
+                              value={customMenuPrice ? Number(customMenuPrice).toLocaleString() : ''}
+                              onChange={(e) => setCustomMenuPrice(e.target.value.replace(/[^0-9]/g, ''))}
+                              className="edit-input"
+                              style={{ width: '100%', padding: '8px', borderRadius: '8px' }}
+                            />
+                            <button className="submit-btn" style={{ padding: '8px 12px', fontSize: '14px', flex: 'none', width: 'auto', borderRadius: '8px' }} onClick={handleAddCustomMenu}>추가</button>
+                            <button className="cancel-btn" style={{ padding: '8px 12px', fontSize: '14px', flex: 'none', width: 'auto', borderRadius: '8px' }} onClick={() => setCustomMenuMode(false)}>취소</button>
+                          </div>
+                        ) : (
+                          <select className="add-item-select" onChange={addEditItem} defaultValue="">
+                            <option value="" disabled>+ 시술 추가하기</option>
+                            <option value="custom" style={{ color: 'var(--gold-bright)' }}>+ 직접 입력 (기타 메뉴)</option>
+                            {allMenus.map(m => (
+                              <option key={m.id} value={m.id}>{m.name_ko} (+{m.price.toLocaleString()}원)</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     ) : (
                       <ul>
