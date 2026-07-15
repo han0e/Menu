@@ -62,7 +62,9 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1 className="login-title">Aaron's Roll N Comb</h1>
+        <div className="login-logo-wrap">
+          <img src="/logo2.png" alt="Aaron's Roll N Comb" className="login-logo" />
+        </div>
         <p className="login-subtitle">Designer Portal</p>
         
         <form onSubmit={handleSubmit} className="login-form">
