@@ -15,6 +15,7 @@ export default function Main({ session }) {
   // Data states
   const [categories, setCategories] = useState([]);
   const [menuData, setMenuData] = useState([]);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -168,6 +169,7 @@ export default function Main({ session }) {
           discount_amount: totalDisc,
           membership_applied: membershipOn,
           signature_url: signatureUrl,
+          language: currentLang,
           terms_agreed: true
         }).select().single();
 
@@ -184,13 +186,7 @@ export default function Main({ session }) {
         if (itemsError) throw itemsError;
       }
 
-      if (currentLang === 'ko') {
-        alert('결제가 성공적으로 처리되었습니다.');
-      } else if (currentLang === 'zh') {
-        alert('付款已成功处理。');
-      } else {
-        alert('Order successfully processed.');
-      }
+      setIsSuccessDialogOpen(true);
       setIsModalOpen(false);
       resetAll();
 
@@ -260,8 +256,35 @@ export default function Main({ session }) {
         onSubmit={handleSignatureSubmit}
         currentLang={currentLang}
       />
+
+      {isSuccessDialogOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content success-dialog" style={{ textAlign: 'center', padding: '40px' }}>
+            <h2 style={{ color: 'var(--gold-bright)', fontSize: '24px', marginBottom: '8px' }}>
+              {currentLang === 'ko' ? '서명 완료' : (currentLang === 'zh' ? '签名完成' : 'Signature Complete')}
+            </h2>
+            <div className="panel-rule" style={{ marginBottom: '10px' }}>
+              <span className="pr-line"></span><span className="pr-gem">◆</span><span className="pr-line"></span>
+            </div>
+            <p style={{ fontSize: '17px', lineHeight: '1.6', color: 'var(--txt-100)', whiteSpace: 'pre-line' }}>
+              {currentLang === 'ko' 
+                ? '서명이 완료되었습니다.\n감사합니다.\n최고의 서비스를 제공하겠습니다.' 
+                : currentLang === 'zh' 
+                  ? '签名已完成。\n谢谢您。\n我们将为您提供最优质的服务。' 
+                  : 'Signature completed.\nThank you.\nWe will provide you with the best service.'}
+            </p>
+            <div className="modal-actions" style={{ marginTop: '20px', justifyContent: 'center' }}>
+              <button 
+                className="submit-btn" 
+                style={{ maxWidth: '200px' }} 
+                onClick={() => setIsSuccessDialogOpen(false)}
+              >
+                {currentLang === 'ko' ? '확인' : (currentLang === 'zh' ? '确认' : 'OK')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
-
-

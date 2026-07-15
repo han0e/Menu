@@ -1,9 +1,7 @@
-const CACHE_NAME = "menu-cache-v7";
+const CACHE_NAME = "menu-cache-v8";
 const urlsToCache = [
   "./",
   "./index.html",
-  "./style.css",
-  "./app.js",
   "./logo2.png",
   "./manifest.json",
   "./icon-192.png",
@@ -18,12 +16,30 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// 오프라인 상태일 때 캐시된 파일 제공 (Cache-First)
+// 오프라인 상태일 때 캐시된 파일 제공 및 새로운 요청 동적 캐싱
 self.addEventListener("fetch", (event) => {
+  // HTTP(S) 요청만 캐싱 시도 (chrome-extension 등 제외)
+  if (!event.request.url.startsWith('http')) return;
+
   event.respondWith(
-    caches
-      .match(event.request)
-      .then((response) => response || fetch(event.request)),
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then((response) => {
+        // 유효한 응답만 캐시
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
+        }
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          if (event.request.method === "GET") {
+            cache.put(event.request, responseToCache);
+          }
+        });
+        return response;
+      });
+    })
   );
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import '../index.css';
@@ -7,6 +7,7 @@ export default function History({ session }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   useEffect(() => {
     fetchOrders();
@@ -37,6 +38,31 @@ export default function History({ session }) {
       console.error('Error fetching orders:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const longPressTimer = useRef(null);
+
+  const startPress = (orderId) => {
+    longPressTimer.current = setTimeout(() => {
+      setDeleteConfirmId(orderId);
+    }, 800); // 800ms for long press
+  };
+
+  const cancelPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const deleteOrder = async (orderId) => {
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (error) throw error;
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (err) {
+      alert('삭제 중 오류가 발생했습니다: ' + err.message);
     }
   };
 
@@ -76,7 +102,15 @@ export default function History({ session }) {
         ) : (
           <div className="orders-grid">
             {orders.map((order) => (
-              <div key={order.id} className="order-card">
+              <div 
+                key={order.id} 
+                className="order-card"
+                onPointerDown={() => startPress(order.id)}
+                onPointerUp={cancelPress}
+                onPointerLeave={cancelPress}
+                onPointerCancel={cancelPress}
+                onContextMenu={(e) => e.preventDefault()}
+              >
                 <div className="order-header">
                   <span className="order-date">{formatDate(order.created_at)}</span>
                   <span className="order-price">{order.total_price.toLocaleString()}원</span>
@@ -101,7 +135,7 @@ export default function History({ session }) {
                   </div>
 
                   <div className="order-signature">
-                    <h4>고객 서명</h4>
+                    <h4>고객 서명 {order.language ? <span style={{ fontSize: '0.8em', color: 'var(--txt-70)', fontWeight: 'normal' }}>({order.language === 'ko' ? '한국어' : order.language === 'en' ? 'English' : '中文'})</span> : ''}</h4>
                     {order.signature_url && !order.signature_url.startsWith('data:') ? (
                       <img src={order.signature_url} alt="서명" className="sig-img" />
                     ) : (
@@ -114,6 +148,29 @@ export default function History({ session }) {
           </div>
         )}
       </div>
+
+      {deleteConfirmId && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ textAlign: 'center', padding: '30px' }}>
+            <h2 style={{ color: 'var(--gold-bright)', fontSize: '24px', marginBottom: '8px' }}>
+              내역 삭제
+            </h2>
+            <div className="panel-rule" style={{ marginBottom: '20px' }}>
+              <span className="pr-line"></span><span className="pr-gem">◆</span><span className="pr-line"></span>
+            </div>
+            <p style={{ fontSize: '16px', color: 'var(--txt-100)', marginBottom: '30px' }}>
+              이 결제 내역을 영구적으로 삭제하시겠습니까?
+            </p>
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setDeleteConfirmId(null)}>취소</button>
+              <button className="submit-btn" onClick={() => {
+                deleteOrder(deleteConfirmId);
+                setDeleteConfirmId(null);
+              }}>삭제하기</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -37,6 +37,7 @@ CREATE TABLE public.orders (
   discount_amount int DEFAULT 0,
   membership_applied boolean DEFAULT false,
   signature_url text NOT NULL,
+  language text DEFAULT 'ko',
   terms_agreed boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
