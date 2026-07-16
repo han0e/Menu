@@ -9,6 +9,33 @@ export default function ResetPassword() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionInfo, setSessionInfo] = useState(null);
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
+
+  const showAlert = (title, message, onConfirm = null) => {
+    setModalConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+    });
+  };
+
+  const getErrorMessage = (message) => {
+    if (!message) return "알 수 없는 오류가 발생했습니다.";
+    const msg = message.toLowerCase();
+    if (msg.includes("should be different")) {
+      return "새 비밀번호는 기존 비밀번호와 다르게 설정해 주세요.";
+    }
+    if (msg.includes("password should be at least")) {
+      return "비밀번호는 최소 6자 이상이어야 합니다.";
+    }
+    return message;
+  };
 
   useEffect(() => {
     // When arriving from the email link, Supabase will process the URL hash
@@ -17,10 +44,13 @@ export default function ResetPassword() {
       if (session) {
         setSessionInfo(session);
       } else {
-        alert(
-          "유효하지 않은 링크이거나 세션이 만료되었습니다. 다시 시도해주세요.",
+        showAlert(
+          "세션 만료",
+          "유효하지 않은 링크이거나 세션이 만료되었습니다.\n다시 시도해주세요.",
+          () => {
+            navigate("/login");
+          },
         );
-        navigate("/login");
       }
     });
   }, [navigate]);
@@ -28,7 +58,7 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== passwordConfirm) {
-      alert("비밀번호가 일치하지 않습니다.");
+      showAlert("알림", "비밀번호가 일치하지 않습니다.");
       return;
     }
 
@@ -38,15 +68,16 @@ export default function ResetPassword() {
     });
 
     if (error) {
-      alert("비밀번호 변경 실패: " + error.message);
+      showAlert("변경 실패", getErrorMessage(error.message));
     } else {
-      alert("비밀번호가 성공적으로 변경되었습니다!");
-      navigate("/");
+      showAlert("변경 성공", "비밀번호가 성공적으로 변경되었습니다!", () => {
+        navigate("/");
+      });
     }
     setLoading(false);
   };
 
-  if (!sessionInfo) {
+  if (!sessionInfo && !modalConfig.isOpen) {
     return (
       <div
         style={{
@@ -103,6 +134,63 @@ export default function ResetPassword() {
           </button>
         </form>
       </div>
+
+      {modalConfig.isOpen && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div
+            className="modal-content"
+            style={{
+              textAlign: "center",
+              padding: "30px",
+              maxWidth: "420px",
+              width: "90%",
+            }}
+          >
+            <h2
+              style={{
+                color: "var(--gold-bright)",
+                fontSize: "20px",
+                marginBottom: "8px",
+              }}
+            >
+              {modalConfig.title}
+            </h2>
+            <div className="panel-rule" style={{ marginBottom: "20px" }}>
+              <span className="pr-line"></span>
+              <span className="pr-gem">◆</span>
+              <span className="pr-line"></span>
+            </div>
+            <p
+              style={{
+                fontSize: "14px",
+                color: "var(--txt-100)",
+                marginBottom: "30px",
+                whiteSpace: "pre-line",
+                lineHeight: "1.6",
+                textAlign: "center",
+              }}
+            >
+              {modalConfig.message}
+            </p>
+            <div
+              className="modal-actions"
+              style={{ display: "flex", justifyContent: "center" }}
+            >
+              <button
+                className="submit-btn"
+                style={{ maxWidth: "160px", padding: "12px", width: "100%" }}
+                onClick={() => {
+                  const cb = modalConfig.onConfirm;
+                  setModalConfig((prev) => ({ ...prev, isOpen: false }));
+                  cb?.();
+                }}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
