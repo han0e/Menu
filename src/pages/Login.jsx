@@ -13,8 +13,39 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '' });
 
+  const getErrorMessage = (message) => {
+    if (!message) return '알 수 없는 오류가 발생했습니다.';
+    
+    const msg = message.toLowerCase();
+    
+    if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+      return '이메일 주소 또는 비밀번호가 잘못되었습니다.';
+    }
+    if (msg.includes('email not confirmed')) {
+      return '이메일 인증이 완료되지 않았습니다. 메일함을 확인해주세요.';
+    }
+    if (msg.includes('user not found')) {
+      return '가입되지 않은 이메일 주소입니다.';
+    }
+    if (msg.includes('invalid email')) {
+      return '올바른 이메일 형식이 아닙니다.';
+    }
+    if (msg.includes('rate limit')) {
+      return '너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해 주세요.';
+    }
+    if (msg.includes('password should be at least')) {
+      return '비밀번호는 최소 6자 이상이어야 합니다.';
+    }
+    if (msg.includes('user already registered') || msg.includes('already exists')) {
+      return '이미 가입된 이메일 주소입니다.';
+    }
+    
+    return message;
+  };
+
   const showAlert = (title, message) => {
-    setModalConfig({ isOpen: true, title, message });
+    const translatedMessage = getErrorMessage(message);
+    setModalConfig({ isOpen: true, title, message: translatedMessage });
   };
 
   const handleSubmit = async (e) => {
