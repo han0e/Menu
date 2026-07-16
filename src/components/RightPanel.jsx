@@ -4,7 +4,8 @@ export default function RightPanel({
   currentLang, selectedIds, toggleItem, 
   membershipOn, setMembershipOn, 
   customDiscount, setCustomDiscount, 
-  resetAll, T, MENU_DATA, onProceed
+  resetAll, T, MENU_DATA, onProceed,
+  isCartOpen, setIsCartOpen
 }) {
   const t = (key) => T[currentLang][key];
   const fmt = n => n.toLocaleString('ko-KR');
@@ -37,7 +38,7 @@ export default function RightPanel({
   const totalRate = subtotal > 0 ? ((totalDisc / subtotal) * 100).toFixed(1) : 0;
 
   return (
-    <div className="right-panel">
+    <div className={`right-panel ${isCartOpen ? 'open' : ''}`}>
       <div className="right-inner">
         <div className="summary-hd">
           <div className="sh-left">
@@ -46,7 +47,10 @@ export default function RightPanel({
               {n > 0 ? (currentLang === 'ko' ? `${n}개 선택` : `${n} item${n > 1 ? 's' : ''}`) : t('countNone')}
             </span>
           </div>
-          <button className="reset-link" onClick={resetAll}>{t('resetBtn')}</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button className="reset-link" onClick={resetAll}>{t('resetBtn')}</button>
+            <button className="cart-close-btn" onClick={() => setIsCartOpen && setIsCartOpen(false)}>×</button>
+          </div>
         </div>
 
         <div className="sel-list">

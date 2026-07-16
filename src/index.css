@@ -1388,10 +1388,15 @@ body, #root { display: flex; width: 100%; height: 100%; }
 
 /* Admin Page Styles */
 .admin-page {
+  width: 100%;
+  height: 100vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 40px 20px;
   max-width: 1100px;
   margin: 0 auto;
   color: var(--txt-100);
+  box-sizing: border-box;
 }
 
 .admin-header {
@@ -1787,4 +1792,306 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield; /* Firefox */
+}
+
+/* 기본 상태(태블릿/데스크톱)에서는 모바일 플로팅 바를 숨김 */
+.mobile-floating-bar {
+  display: none;
+}
+
+/* ============================================================
+   모바일 대응 (768px 이하) 미디어 쿼리
+   ============================================================ */
+@media (max-width: 768px) {
+  body, #root {
+    flex-direction: column;
+    overflow: hidden; /* 모바일에서 전체 페이지 바깥 스크롤 방지 */
+  }
+
+  /* 좌측 패널 (메뉴판)을 모바일 전체 너비로 */
+  .left-panel {
+    width: 100%;
+    height: 100vh;
+    border-right: none;
+  }
+
+  /* 브랜드 헤더 패딩 조정 */
+  .brand-header {
+    padding: 12px 20px 10px;
+  }
+  .brand-logo-img {
+    height: 72px;
+  }
+  .brand-location {
+    font-size: 10px;
+  }
+
+  /* 카테고리 네비게이션 모바일 최적화 */
+  .category-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  .cat-tab {
+    flex: 1 0 auto;
+    width: auto;
+    min-width: unset;
+    padding: 12px 14px;
+    font-size: 15px;
+    text-align: center;
+  }
+
+  /* 메뉴 리스트 패딩 및 스크롤바 */
+  .menu-list {
+    padding: 12px 16px 100px; /* 하단 플로팅 바에 가려지지 않게 여유 공간 추가 */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .menu-card {
+    padding: 14px 16px;
+  }
+  .card-name {
+    font-size: 16px;
+  }
+  .card-price {
+    font-size: 18px;
+  }
+
+  /* 우측 패널 (주문 내역) - 슬라이드 드로어로 변환 */
+  .right-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 2000;
+    border-left: none;
+    background: var(--bg);
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .right-panel.open {
+    transform: translateX(0);
+  }
+
+  .right-inner {
+    padding: 20px 16px 40px;
+  }
+
+  /* 모바일용 닫기 버튼 */
+  .cart-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface-3);
+    border: 1px solid var(--bdr-md);
+    color: var(--gold-bright);
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.2s;
+  }
+  .cart-close-btn:hover {
+    background: var(--surface-hover);
+  }
+
+  /* 모바일 장바구니 닫기 버튼이 아닌 데스크톱의 닫기 버튼 제어 */
+  .lang-toggle {
+    left: auto;
+    right: 16px;
+    top: 14px;
+    padding: 4px 10px;
+  }
+  .lang-opt {
+    font-size: 12px;
+    padding: 2px 4px;
+  }
+  .lang-sep {
+    font-size: 10px;
+  }
+
+  /* 모바일 플로팅 바 스타일링 */
+  .mobile-floating-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(120px);
+    width: calc(100% - 32px);
+    max-width: 480px;
+    background: var(--gold-grad);
+    color: #0c0a06;
+    padding: 14px 20px;
+    border-radius: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 15px rgba(212,175,106,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1500;
+    cursor: pointer;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1), opacity 0.3s;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .mobile-floating-bar.visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mobile-floating-bar:active {
+    transform: translateX(-50%) scale(0.97);
+  }
+
+  .floating-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .floating-count-badge {
+    background: #111;
+    color: var(--gold-bright);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--num);
+  }
+
+  .floating-total-price {
+    font-family: var(--num);
+    font-size: 16px;
+    font-weight: 700;
+    margin-left: 4px;
+    color: #111;
+  }
+
+  .floating-bar-right {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  /* 결제 내역 페이지 모바일 대응 */
+  .history-page {
+    padding: 16px;
+  }
+  .history-header {
+    margin-bottom: 20px;
+  }
+  .history-title {
+    font-size: 20px;
+  }
+  .orders-grid {
+    grid-template-columns: 1fr; /* 모바일에서는 무조건 한 줄로 */
+    gap: 16px;
+  }
+  .order-card {
+    padding: 16px;
+  }
+
+  /* 로그인 페이지 모바일 대응 */
+  .login-card {
+    padding: 24px 20px;
+  }
+  .login-subtitle {
+    margin-bottom: 24px;
+  }
+  
+  /* 모달 서명 영역 모바일 최적화 */
+  .modal-content {
+    width: 95%;
+    padding: 20px 16px;
+    gap: 12px;
+  }
+  .modal-title {
+    font-size: 20px;
+  }
+  .canvas-container {
+    height: 130px;
+  }
+
+  /* 메뉴 및 카테고리 어드민 페이지 모바일 대응 */
+  .admin-page {
+    padding: 20px 14px 40px;
+  }
+  
+  .admin-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 16px 8px;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  
+  .admin-header .back-btn {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+  
+  .admin-header .admin-title {
+    grid-column: 1 / span 3;
+    grid-row: 2;
+    text-align: center;
+    font-size: 22px;
+    margin: 0;
+    line-height: 1.2;
+  }
+  
+  .admin-header .history-header-right {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .admin-panel {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .panel-header h2 {
+    font-size: 17px;
+  }
+
+  .admin-list-item {
+    padding: 12px;
+  }
+
+  .view-row .title {
+    font-size: 14px;
+  }
+
+  .title-text {
+    font-size: 14px;
+  }
+  
+  .price-text {
+    font-size: 12px;
+  }
+  
+  .visibility-text {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
+/* 데스크톱/태블릿 등 768px 초과 너비에서 닫기 버튼 숨김 */
+@media (min-width: 769px) {
+  .cart-close-btn {
+    display: none !important;
+  }
 }

@@ -12,6 +12,7 @@ export default function Main({ session }) {
   const [customDiscount, setCustomDiscount] = useState(0);
   const [currentCat, setCurrentCat] = useState('cut');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   // Data states
   const [categories, setCategories] = useState([]);
   const [menuData, setMenuData] = useState([]);
@@ -209,6 +210,19 @@ export default function Main({ session }) {
     return <div key="loading-screen" className="loading-txt">메뉴 불러오는 중...</div>;
   }
 
+  // Calculate current totals for mobile floating bar
+  const selectedItems = menuData.filter(i => selectedIds.has(i.id));
+  let calculatedSubtotal = 0, calculatedMemDisc = 0, calculatedCustomDisc = 0;
+  
+  selectedItems.forEach(item => {
+    calculatedSubtotal += item.price;
+    const mRate = (!membershipOn || !item.membershipEligible) ? 0 : (item.membershipRate || 0);
+    const afterMem = Math.round(item.price * (1 - mRate / 100));
+    calculatedMemDisc += (item.price - afterMem);
+    calculatedCustomDisc += Math.round(afterMem * customDiscount / 100);
+  });
+  const calculatedTotal = calculatedSubtotal - (calculatedMemDisc + calculatedCustomDisc);
+
   return (
     <>
       <div key="lang-toggle" className="lang-toggle">
@@ -251,6 +265,8 @@ export default function Main({ session }) {
         T={T}
         MENU_DATA={menuData}
         onProceed={() => setIsModalOpen(true)}
+        isCartOpen={isCartOpen}
+        setIsCartOpen={setIsCartOpen}
       />
 
       <SignatureModal 
@@ -288,6 +304,22 @@ export default function Main({ session }) {
           </div>
         </div>
       )}
+      {/* 모바일 플로팅 장바구니 바 */}
+      <div 
+        className={`mobile-floating-bar ${selectedIds.size > 0 ? 'visible' : ''}`}
+        onClick={() => setIsCartOpen(true)}
+      >
+        <div className="floating-bar-left">
+          <span className="floating-count-badge">{selectedIds.size}</span>
+          <span className="floating-total-price">{calculatedTotal.toLocaleString('ko-KR')}원</span>
+        </div>
+        <div className="floating-bar-right">
+          <span>{currentLang === 'ko' ? '선택 내역 확인' : currentLang === 'zh' ? '查看选择' : 'View Selected'}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px' }}>
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </div>
+      </div>
     </>
   );
 }
