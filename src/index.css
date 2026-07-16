@@ -430,6 +430,8 @@ body, #root { display: flex; width: 100%; height: 100%; }
 }
 
 .reset-link {
+  display: inline-flex;
+  align-items: center;
   background: none;
   border: none;
   color: var(--txt-50);
@@ -1870,6 +1872,7 @@ input[type="number"] {
     background: var(--bg);
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
   }
 
   .right-panel.open {
@@ -1877,7 +1880,10 @@ input[type="number"] {
   }
 
   .right-inner {
-    padding: 20px 16px 40px;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 16px 80px; /* 안내사항 영역을 완전히 다 보기 위해 하단 여백 대폭 확장 */
   }
 
   /* 모바일용 닫기 버튼 */
@@ -2092,4 +2098,33 @@ input[type="number"] {
   .cart-close-btn {
     display: none !important;
   }
+}
+
+/* 회원 탈퇴 링크 스타일 (마우스오버 붉은 빛 차단) */
+.withdraw-btn {
+  margin-top: 8px;
+  background: none !important;
+  border: none !important;
+  color: #e08080 !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  align-self: center !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  opacity: 0.85;
+  transition: opacity var(--transition), color var(--transition) !important;
+}
+
+.withdraw-btn:hover,
+.withdraw-btn:focus,
+.withdraw-btn:active {
+  color: #ff9999 !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  background: none !important;
+  outline: none !important;
 }

@@ -10,6 +10,12 @@ import History from './pages/History';
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null
+  });
 
   useEffect(() => {
     if (!supabase) {
@@ -17,15 +23,34 @@ export default function App() {
       return;
     }
 
+    // 탈퇴 상태 확인 및 강제 로그아웃 처리 도우미 함수
+    const checkDeletedSession = async (currentSession) => {
+      if (currentSession?.user?.user_metadata?.is_deleted) {
+        setModalConfig({
+          isOpen: true,
+          title: '로그인 제한',
+          message: '탈퇴 처리된 계정입니다.\n해당 계정은 더 이상 사용할 수 없습니다.',
+          onConfirm: async () => {
+            await supabase.auth.signOut();
+            setSession(null);
+          }
+        });
+        return false;
+      }
+      setSession(currentSession);
+      return true;
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
+      checkDeletedSession(session).then(() => {
+        setLoading(false);
+      });
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      checkDeletedSession(session);
     });
 
     return () => subscription.unsubscribe();
@@ -80,6 +105,36 @@ export default function App() {
           element={session ? <MenuAdmin session={session} /> : <Navigate to="/login" replace />} 
         />
       </Routes>
+
+      {modalConfig.isOpen && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="modal-content" style={{ textAlign: "center", padding: "30px", maxWidth: "420px", width: "90%" }}>
+            <h2 style={{ color: "var(--gold-bright)", fontSize: "20px", marginBottom: "8px" }}>
+              {modalConfig.title}
+            </h2>
+            <div className="panel-rule" style={{ marginBottom: "20px" }}>
+              <span className="pr-line"></span>
+              <span className="pr-gem">◆</span>
+              <span className="pr-line"></span>
+            </div>
+            <p style={{ fontSize: "14px", color: "var(--txt-100)", marginBottom: "30px", whiteSpace: "pre-line", lineHeight: "1.6", textAlign: "center" }}>
+              {modalConfig.message}
+            </p>
+            <div className="modal-actions" style={{ display: "flex", justifyContent: "center" }}>
+              <button 
+                className="submit-btn" 
+                style={{ maxWidth: "160px", padding: "12px", width: "100%" }}
+                onClick={async () => {
+                  await modalConfig.onConfirm?.();
+                  setModalConfig(prev => ({ ...prev, isOpen: false }));
+                }}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Router>
   );
 }
