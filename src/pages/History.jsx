@@ -42,12 +42,14 @@ export default function History({ session }) {
   const [editItems, setEditItems] = useState([]);
 
   useEffect(() => {
-    fetchOrders();
+    if (session?.user?.id) {
+      fetchOrders();
+    }
     fetchMenus();
-  }, [session]);
+  }, [session?.user?.id]);
 
   const fetchOrders = async () => {
-    if (!supabase) return;
+    if (!supabase || !session?.user?.id) return;
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -62,7 +64,7 @@ export default function History({ session }) {
             )
           )
         `)
-        .eq('designer_id', session?.user?.id)
+        .eq('designer_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -103,6 +105,21 @@ export default function History({ session }) {
 
   const deleteOrder = async (orderId) => {
     try {
+      const targetOrder = orders.find(o => o.id === orderId);
+      if (targetOrder && targetOrder.signature_url && !targetOrder.signature_url.startsWith('data:')) {
+        const url = targetOrder.signature_url;
+        const parts = url.split('/signatures/');
+        if (parts.length > 1) {
+          const fileName = parts[1];
+          const { error: storageError } = await supabase.storage
+            .from('signatures')
+            .remove([fileName]);
+          if (storageError) {
+            console.error('서명 이미지 삭제 실패:', storageError);
+          }
+        }
+      }
+
       const { error } = await supabase.from('orders').delete().eq('id', orderId);
       if (error) throw error;
       setOrders(prev => prev.filter(o => o.id !== orderId));
