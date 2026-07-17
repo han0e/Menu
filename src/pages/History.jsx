@@ -5,7 +5,7 @@ import UserHeaderMenu from '../components/UserHeaderMenu';
 import '../index.css';
 
 const EditIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 20h9"></path>
     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
   </svg>
@@ -31,9 +31,15 @@ export default function History({ session }) {
   const [loading, setLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
+  // Helper to get today string
+  const getTodayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   // Filter States
   const [filterType, setFilterType] = useState('date'); // 'date' | 'month'
-  const [filterValue, setFilterValue] = useState('');
+  const [filterValue, setFilterValue] = useState(getTodayStr());
   
   const [allMenus, setAllMenus] = useState([]);
   
@@ -46,19 +52,21 @@ export default function History({ session }) {
   const [editItems, setEditItems] = useState([]);
 
   useEffect(() => {
+    fetchMenus();
+  }, []);
+
+  useEffect(() => {
     if (session?.user?.id) {
       fetchOrders();
     }
-    fetchMenus();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, filterValue, filterType]);
 
   const fetchOrders = async () => {
     if (!supabase || !session?.user?.id) return;
     try {
-      // iOS 모바일 사파리 등에서 fetch(GET) 요청이 캐싱되는 문제를 방지하기 위해 
-      // 매번 바뀌는 동적 파라미터(현재 시간 이후)를 추가합니다.
-      const dummyTimestamp = new Date(Date.now() + 86400000).toISOString();
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      let query = supabase
         .from('orders')
         .select(`
           *,
@@ -72,9 +80,25 @@ export default function History({ session }) {
           )
         `)
         .eq('designer_id', session.user.id)
-        .lte('created_at', dummyTimestamp)
         .order('created_at', { ascending: false });
 
+      if (filterValue) {
+        if (filterType === 'date') {
+          const start = new Date(`${filterValue}T00:00:00+09:00`).toISOString();
+          const end = new Date(`${filterValue}T23:59:59.999+09:00`).toISOString();
+          query = query.gte('created_at', start).lte('created_at', end);
+        } else if (filterType === 'month') {
+          const [y, m] = filterValue.split('-');
+          const lastDay = new Date(y, m, 0).getDate();
+          const start = new Date(`${filterValue}-01T00:00:00+09:00`).toISOString();
+          const end = new Date(`${filterValue}-${String(lastDay).padStart(2,'0')}T23:59:59.999+09:00`).toISOString();
+          query = query.gte('created_at', start).lte('created_at', end);
+        }
+      } else {
+        query = query.limit(50);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setOrders(data || []);
     } catch (err) {
@@ -295,7 +319,16 @@ export default function History({ session }) {
       <div className="history-filter-bar" style={{ padding: '4px 16px 20px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
         <select 
           value={filterType} 
-          onChange={(e) => { setFilterType(e.target.value); setFilterValue(''); }}
+          onChange={(e) => { 
+            const newType = e.target.value;
+            setFilterType(newType); 
+            const d = new Date();
+            if (newType === 'month') {
+              setFilterValue(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+            } else {
+              setFilterValue(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+            }
+          }}
           style={{ padding: '8px 12px', borderRadius: '8px', background: 'var(--surface-2)', color: 'var(--txt-100)', border: '1px solid var(--bdr-lo)', outline: 'none' }}
         >
           <option value="date">일별 조회</option>
@@ -347,9 +380,9 @@ export default function History({ session }) {
                 <div className="order-header">
                   <span className="order-date">{formatDate(order.created_at)}</span>
                   {!isEditing && (
-                    <div className="order-header-right">
+                    <div className="order-header-right" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span className="order-price">{order.total_price.toLocaleString()}원</span>
-                      <button className="edit-btn" onClick={(e) => openEdit(order, e)}>
+                      <button className="edit-btn" onClick={(e) => openEdit(order, e)} style={{ display: 'flex', alignItems: 'center', padding: 0, background: 'none', border: 'none', color: 'inherit', transform: 'translateY(1px)' }}>
                         <EditIcon />
                       </button>
                     </div>

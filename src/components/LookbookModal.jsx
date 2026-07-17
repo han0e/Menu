@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import '../index.css';
 
 export default function LookbookModal({ isOpen, onClose, item, currentLang, T }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentIndex(0);
+    }
+  }, [isOpen, item]);
 
   if (!isOpen || !item) return null;
 
@@ -13,13 +21,39 @@ export default function LookbookModal({ isOpen, onClose, item, currentLang, T })
   const images = item.image_url ? item.image_url.split(',').map(u => u.trim()).filter(Boolean) : [];
 
   const handleNext = (e) => {
-    e.stopPropagation();
+    e?.stopPropagation?.();
     setCurrentIndex((prev) => (prev + 1) % images.length);
   };
 
   const handlePrev = (e) => {
-    e.stopPropagation();
+    e?.stopPropagation?.();
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  // Swipe logic
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    const distance = touchStartX.current - touchEndX.current;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      handleNext();
+    } else if (isRightSwipe) {
+      handlePrev();
+    }
+
+    touchStartX.current = 0;
+    touchEndX.current = 0;
   };
 
   let timeStr = null;
@@ -47,31 +81,27 @@ export default function LookbookModal({ isOpen, onClose, item, currentLang, T })
           onClick={onClose} 
           style={{ 
             position: 'absolute', 
-            top: '16px', 
-            right: '16px', 
-            width: '36px', 
-            height: '36px', 
-            borderRadius: '50%', 
-            background: 'rgba(0,0,0,0.4)', 
-            border: '1px solid rgba(255,255,255,0.15)', 
+            top: '12px', 
+            right: '12px', 
+            background: 'transparent', 
+            border: 'none', 
             color: '#fff', 
-            fontSize: '18px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
             cursor: 'pointer', 
             zIndex: 20,
-            backdropFilter: 'blur(4px)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+            padding: '8px'
           }}
         >
-          ✕
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' }}><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
 
         {/* 메인 이미지 */}
-        <div className="lookbook-image-container" style={{ width: '100%', height: '65vh', minHeight: '400px', maxHeight: '600px', backgroundColor: '#111', position: 'relative' }}>
-
-
+        <div 
+          className="lookbook-image-container" 
+          style={{ width: '100%', height: '60vh', minHeight: '350px', maxHeight: '550px', backgroundColor: '#111', position: 'relative' }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {images.length > 0 ? (
             <>
               {images.map((imgUrl, idx) => (
@@ -94,13 +124,12 @@ export default function LookbookModal({ isOpen, onClose, item, currentLang, T })
               
               {images.length > 1 && (
                 <>
-                  <button onClick={handlePrev} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '20px', cursor: 'pointer', zIndex: 10 }}>❮</button>
-                  <button onClick={handleNext} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '20px', cursor: 'pointer', zIndex: 10 }}>❯</button>
-                  <div style={{ position: 'absolute', bottom: '10px', width: '100%', display: 'flex', justifyContent: 'center', gap: '8px', zIndex: 10 }}>
-                    {images.map((_, idx) => (
-                      <div key={idx} style={{ width: '8px', height: '8px', borderRadius: '50%', background: idx === currentIndex ? 'var(--gold-main)' : 'rgba(255,255,255,0.5)' }} />
-                    ))}
-                  </div>
+                  <button onClick={handlePrev} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', color: '#fff', border: 'none', cursor: 'pointer', zIndex: 10, padding: '12px' }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' }}><path d="m15 18-6-6 6-6"/></svg>
+                  </button>
+                  <button onClick={handleNext} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', color: '#fff', border: 'none', cursor: 'pointer', zIndex: 10, padding: '12px' }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))' }}><path d="m9 18 6-6-6-6"/></svg>
+                  </button>
                 </>
               )}
             </>
@@ -110,6 +139,48 @@ export default function LookbookModal({ isOpen, onClose, item, currentLang, T })
             </div>
           )}
         </div>
+
+        {/* 썸네일 스트립 (이미지가 여러 장일 때만 표시) */}
+        {images.length > 1 && (
+          <div style={{ 
+            width: '100%', 
+            padding: '12px 16px', 
+            background: 'var(--surface-1)', 
+            borderTop: '1px solid var(--bdr-lo)',
+            display: 'flex', 
+            gap: '12px', 
+            overflowX: 'auto', 
+            WebkitOverflowScrolling: 'touch', 
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
+            <style>{`.lookbook-content ::-webkit-scrollbar { display: none; }`}</style>
+            {images.map((imgUrl, idx) => (
+              <div 
+                key={idx}
+                onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  flexShrink: 0,
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: currentIndex === idx ? '2px solid var(--gold-main)' : '2px solid transparent',
+                  opacity: currentIndex === idx ? 1 : 0.4,
+                  transition: 'all 0.3s ease',
+                  position: 'relative'
+                }}
+              >
+                <img 
+                  src={imgUrl.trim()} 
+                  alt={`thumb-${idx}`} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -136,6 +136,40 @@ export default function MenuAdmin({ session }) {
     else fetchData();
   };
 
+  const handleAutoTranslateCat = async () => {
+    if (!catForm.name_ko) {
+      return alert('번역할 한글 카테고리명이 없습니다.');
+    }
+    try {
+      const translate = async (text, target) => {
+        if (!text) return '';
+        let preProcessed = text;
+        if (target === 'en') {
+          preProcessed = preProcessed.replace(/컷/g, 'Cut').replace(/펌/g, 'Perm').replace(/염색/g, 'Color').replace(/클리닉/g, 'Clinic');
+        } else if (target === 'zh-CN') {
+          preProcessed = preProcessed.replace(/컷/g, '剪发').replace(/펌/g, '烫发').replace(/염색/g, '染发').replace(/클리닉/g, '护发');
+        }
+        const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=${target}&dt=t&q=${encodeURIComponent(preProcessed)}`);
+        const data = await res.json();
+        return data[0].map(item => item[0]).join('');
+      };
+
+      let [name_en, name_zh] = await Promise.all([
+        translate(catForm.name_ko, 'en'),
+        translate(catForm.name_ko, 'zh-CN'),
+      ]);
+
+      const toTitleCase = (str) => str ? str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()) : '';
+      name_en = toTitleCase(name_en);
+
+      setCatForm(prev => ({ ...prev, name_en, name_zh }));
+      alert('카테고리 자동 번역이 완료되었습니다!');
+    } catch (e) {
+      alert('번역 중 오류가 발생했습니다.');
+      console.error(e);
+    }
+  };
+
   const handleAutoTranslate = async () => {
     if (!menuForm.name_ko && !menuForm.desc_ko && !menuForm.warning_ko) {
       return alert('번역할 한글 내용이 없습니다. 먼저 한글 내용을 입력해주세요.');
@@ -176,7 +210,7 @@ export default function MenuAdmin({ session }) {
         return data[0].map(item => item[0]).join('');
       };
 
-      const [name_en, desc_en, warning_en, name_zh, desc_zh, warning_zh] = await Promise.all([
+      let [name_en, desc_en, warning_en, name_zh, desc_zh, warning_zh] = await Promise.all([
         translate(menuForm.name_ko, 'en'),
         translate(menuForm.desc_ko, 'en'),
         translate(menuForm.warning_ko, 'en'),
@@ -184,6 +218,9 @@ export default function MenuAdmin({ session }) {
         translate(menuForm.desc_ko, 'zh-CN'),
         translate(menuForm.warning_ko, 'zh-CN'),
       ]);
+
+      const toTitleCase = (str) => str ? str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()) : '';
+      name_en = toTitleCase(name_en);
 
       setMenuForm(prev => ({
         ...prev,
@@ -223,10 +260,40 @@ export default function MenuAdmin({ session }) {
                   <li className="admin-list-item editing">
                     <div className="form-group"><label>카테고리 ID (예: cut)</label><input type="text" placeholder="영문 소문자 권장" value={catForm.id} onChange={e => setCatForm({...catForm, id: e.target.value})} /></div>
                     
-                    <div className="lang-tabs">
-                      <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
-                      <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
-                      <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', marginTop: '16px', gap: '12px' }}>
+                      <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
+                        <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
+                        <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
+                        <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={handleAutoTranslateCat} 
+                        style={{ 
+                          background: 'rgba(212, 175, 106, 0.08)', 
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(212, 175, 106, 0.2)', 
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                          color: 'var(--gold-main)', 
+                          padding: '0 20px', 
+                          borderRadius: '20px', 
+                          cursor: 'pointer', 
+                          fontSize: '13px', 
+                          fontWeight: '500',
+                          letterSpacing: '0.5px',
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          flexShrink: 0, 
+                          height: '40px', 
+                          transition: 'all 0.2s ease' 
+                        }}
+                        onMouseEnter={e => { e.target.style.background = 'rgba(212, 175, 106, 0.15)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.3)'; }}
+                        onMouseLeave={e => { e.target.style.background = 'rgba(212, 175, 106, 0.08)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.2)'; }}
+                      >
+                        AI 자동 번역
+                      </button>
                     </div>
 
                     {langTab === 'ko' && <div className="form-group"><label>카테고리 한글명</label><input type="text" placeholder="예: 커트" value={catForm.name_ko || ''} onChange={e => setCatForm({...catForm, name_ko: e.target.value})} /></div>}
@@ -245,10 +312,40 @@ export default function MenuAdmin({ session }) {
                       <div className="edit-form">
                         <div className="form-group"><label>카테고리 ID (수정불가)</label><input type="text" disabled value={catForm.id} /></div>
 
-                        <div className="lang-tabs">
-                          <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
-                          <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
-                          <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', marginTop: '16px', gap: '12px' }}>
+                          <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
+                            <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
+                            <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
+                            <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={handleAutoTranslateCat} 
+                            style={{ 
+                              background: 'rgba(212, 175, 106, 0.08)', 
+                              backdropFilter: 'blur(8px)',
+                              WebkitBackdropFilter: 'blur(8px)',
+                              border: '1px solid rgba(212, 175, 106, 0.2)', 
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                              color: 'var(--gold-main)', 
+                              padding: '0 20px', 
+                              borderRadius: '20px', 
+                              cursor: 'pointer', 
+                              fontSize: '13px', 
+                              fontWeight: '500',
+                              letterSpacing: '0.5px',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              flexShrink: 0, 
+                              height: '40px', 
+                              transition: 'all 0.2s ease' 
+                            }}
+                            onMouseEnter={e => { e.target.style.background = 'rgba(212, 175, 106, 0.15)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.3)'; }}
+                            onMouseLeave={e => { e.target.style.background = 'rgba(212, 175, 106, 0.08)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.2)'; }}
+                          >
+                            AI 자동 번역
+                          </button>
                         </div>
 
                         {langTab === 'ko' && <div className="form-group"><label>카테고리 한글명</label><input type="text" placeholder="한글명" value={catForm.name_ko || ''} onChange={e => setCatForm({...catForm, name_ko: e.target.value})} /></div>}
