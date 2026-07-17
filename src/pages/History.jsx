@@ -30,6 +30,10 @@ export default function History({ session }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  // Filter States
+  const [filterType, setFilterType] = useState('date'); // 'date' | 'month'
+  const [filterValue, setFilterValue] = useState('');
   
   const [allMenus, setAllMenus] = useState([]);
   
@@ -51,6 +55,9 @@ export default function History({ session }) {
   const fetchOrders = async () => {
     if (!supabase || !session?.user?.id) return;
     try {
+      // iOS 모바일 사파리 등에서 fetch(GET) 요청이 캐싱되는 문제를 방지하기 위해 
+      // 매번 바뀌는 동적 파라미터(현재 시간 이후)를 추가합니다.
+      const dummyTimestamp = new Date(Date.now() + 86400000).toISOString();
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -65,6 +72,7 @@ export default function History({ session }) {
           )
         `)
         .eq('designer_id', session.user.id)
+        .lte('created_at', dummyTimestamp)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -258,6 +266,20 @@ export default function History({ session }) {
     });
   };
 
+  const getLocalDateStr = (dateStr, type) => {
+    const d = new Date(dateStr);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    if (type === 'month') return `${yyyy}-${mm}`;
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const filteredOrders = orders.filter(order => {
+    if (!filterValue) return true;
+    return getLocalDateStr(order.created_at, filterType) === filterValue;
+  });
+
   return (
     <div className="history-page">
       <div className="history-header">
@@ -270,14 +292,46 @@ export default function History({ session }) {
         </div>
       </div>
 
+      <div className="history-filter-bar" style={{ padding: '4px 16px 20px', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+        <select 
+          value={filterType} 
+          onChange={(e) => { setFilterType(e.target.value); setFilterValue(''); }}
+          style={{ padding: '8px 12px', borderRadius: '8px', background: 'var(--surface-2)', color: 'var(--txt-100)', border: '1px solid var(--bdr-lo)', outline: 'none' }}
+        >
+          <option value="date">일별 조회</option>
+          <option value="month">월별 조회</option>
+        </select>
+        <input 
+          type={filterType} 
+          value={filterValue} 
+          onChange={(e) => setFilterValue(e.target.value)}
+          style={{ padding: '8px 12px', borderRadius: '8px', background: 'var(--surface-2)', color: 'var(--txt-100)', border: '1px solid var(--bdr-lo)', outline: 'none', colorScheme: 'dark' }}
+        />
+        {filterValue && (
+          <button 
+            onClick={() => setFilterValue('')}
+            style={{ background: 'var(--surface-3)', border: '1px solid var(--bdr-md)', color: 'var(--txt-70)', borderRadius: '8px', cursor: 'pointer', padding: '8px 12px', fontSize: '13px' }}
+          >
+            초기화
+          </button>
+        )}
+      </div>
+
       <div className="history-content">
         {loading ? (
           <div className="loading-txt">데이터를 불러오는 중입니다...</div>
-        ) : orders.length === 0 ? (
-          <div className="empty-txt">결제 내역이 없습니다.</div>
         ) : (
-          <div className="orders-grid">
-            {orders.map((order) => {
+          <>
+            {filterValue && filteredOrders.length > 0 && (
+              <div style={{ textAlign: 'center', marginBottom: '20px', fontSize: '15px', color: 'var(--gold-main)', fontWeight: 'bold', background: 'rgba(212, 175, 106, 0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(212, 175, 106, 0.2)' }}>
+                결제 {filteredOrders.length}건 | 총 매출: {filteredOrders.reduce((sum, o) => sum + Number(o.total_price), 0).toLocaleString()}원
+              </div>
+            )}
+            {filteredOrders.length === 0 ? (
+              <div className="empty-txt">해당 기간의 결제 내역이 없습니다.</div>
+            ) : (
+              <div className="orders-grid">
+                {filteredOrders.map((order) => {
               const isEditing = editingOrderId === order.id;
 
               return (
@@ -412,6 +466,8 @@ export default function History({ session }) {
               </div>
             )})}
           </div>
+            )}
+          </>
         )}
       </div>
 

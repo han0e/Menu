@@ -20,10 +20,11 @@ export default function RightPanel({
   const list = MENU_DATA.filter(i => selectedIds.has(i.id));
   const n = selectedIds.size;
 
-  let subtotal = 0, memDisc = 0, customDisc = 0;
+  let subtotal = 0, memDisc = 0, customDisc = 0, totalTime = 0;
   
   list.forEach(item => {
     subtotal += item.price;
+    if (item.estimated_time) totalTime += item.estimated_time;
     const mRate = getMemRate(item);
     const afterMem = Math.round(item.price * (1 - mRate / 100));
     const mDiff = item.price - afterMem;
@@ -36,6 +37,13 @@ export default function RightPanel({
   const finalTotal = subtotal - totalDisc;
 
   const totalRate = subtotal > 0 ? ((totalDisc / subtotal) * 100).toFixed(1) : 0;
+
+  let totalTimeStr = null;
+  if (totalTime > 0) {
+    if (currentLang === 'ko') totalTimeStr = `약 ${totalTime >= 60 ? `${Math.floor(totalTime/60)}시간 ${totalTime%60>0 ? `${totalTime%60}분`:''}` : `${totalTime}분`}`;
+    else if (currentLang === 'zh') totalTimeStr = `约 ${totalTime >= 60 ? `${Math.floor(totalTime/60)}小时 ${totalTime%60>0 ? `${totalTime%60}分钟`:''}` : `${totalTime}分钟`}`;
+    else totalTimeStr = `About ${totalTime >= 60 ? `${Math.floor(totalTime/60)}h ${totalTime%60>0 ? `${totalTime%60}m`:''}` : `${totalTime}m`}`;
+  }
 
   return (
     <div className={`right-panel ${isCartOpen ? 'open' : ''}`}>
@@ -162,6 +170,12 @@ export default function RightPanel({
                 ].filter(Boolean))}
               </span>
               <span className="total-val disc-val">−{fmt(totalDisc)}</span>
+            </div>
+          )}
+          {totalTime > 0 && (
+            <div className="total-row" style={{ marginTop: '8px', color: 'var(--txt-70)', fontSize: 'var(--fs-sm)' }}>
+              <span className="total-lbl">{currentLang === 'ko' ? '예상 소요 시간' : (currentLang === 'zh' ? '预计时间' : 'Est. Time')}</span>
+              <span className="total-val">{totalTimeStr}</span>
             </div>
           )}
           <div className="grand-row">

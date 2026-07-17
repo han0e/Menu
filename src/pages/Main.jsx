@@ -4,6 +4,7 @@ import RightPanel from '../components/RightPanel';
 import SignatureModal from '../components/SignatureModal';
 import { T } from '../data/menuData'; // MENU_DATA is no longer imported
 import { supabase } from '../supabaseClient';
+import LookbookModal from '../components/LookbookModal';
 
 export default function Main({ session }) {
   const [currentLang, setCurrentLang] = useState('ko');
@@ -13,6 +14,7 @@ export default function Main({ session }) {
   const [currentCat, setCurrentCat] = useState('cut');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [lookbookItem, setLookbookItem] = useState(null);
   // Data states
   const [categories, setCategories] = useState([]);
   const [menuData, setMenuData] = useState([]);
@@ -25,21 +27,24 @@ export default function Main({ session }) {
 
   const fetchDbData = async () => {
     try {
-      // 1. Fetch categories
+      const dummyId = 'dummy-' + Date.now();
+      // 1. Fetch categories (캐시 방지용 dummy 조건 추가)
       const { data: catData, error: catError } = await supabase
         .from('categories')
         .select('*')
+        .neq('id', dummyId)
         .order('sort_order', { ascending: true });
       if (catError) {
         alert('카테고리 불러오기 실패: ' + catError.message);
         throw catError;
       }
 
-      // 2. Fetch menu items
+      // 2. Fetch menu items (캐시 방지용 dummy 조건 추가)
       const { data: menuItemsData, error: menuError } = await supabase
         .from('menu_items')
         .select('*')
         .eq('is_active', true)
+        .neq('id', dummyId)
         .order('sort_order', { ascending: true });
       if (menuError) {
         alert('메뉴 불러오기 실패: ' + menuError.message);
@@ -62,7 +67,10 @@ export default function Main({ session }) {
         subItems: dbItem.sub_items_ko ? { ko: dbItem.sub_items_ko, en: dbItem.sub_items_en, zh: dbItem.sub_items_zh } : undefined,
         membershipEligible: dbItem.membership_eligible,
         membershipRate: dbItem.membership_rate,
-        lengthExtra: dbItem.length_extra
+        lengthExtra: dbItem.length_extra,
+        image_url: dbItem.image_url,
+        warning: dbItem.warning_ko ? { ko: dbItem.warning_ko, en: dbItem.warning_en, zh: dbItem.warning_zh } : undefined,
+        estimated_time: dbItem.estimated_time
       }));
 
       setCategories(catData ? catData.filter(c => c.id !== 'custom_cat') : []);
@@ -248,6 +256,7 @@ export default function Main({ session }) {
         setCurrentCat={setCurrentCat}
         selectedIds={selectedIds}
         toggleItem={toggleItem}
+        onOpenLookbook={setLookbookItem}
         T={T}
         MENU_DATA={menuData}
         CATEGORIES={categories}
@@ -274,6 +283,15 @@ export default function Main({ session }) {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSignatureSubmit}
         currentLang={currentLang}
+        selectedItems={menuData.filter(i => selectedIds.has(i.id))}
+      />
+
+      <LookbookModal 
+        isOpen={!!lookbookItem}
+        onClose={() => setLookbookItem(null)}
+        item={lookbookItem}
+        currentLang={currentLang}
+        T={T}
       />
 
       {isSuccessDialogOpen && (

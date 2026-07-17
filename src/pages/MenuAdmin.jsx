@@ -18,7 +18,7 @@ export default function MenuAdmin({ session }) {
 
   // States for Menu Management
   const [editMenuId, setEditMenuId] = useState(null);
-  const [menuForm, setMenuForm] = useState({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: '', is_active: true, sort_order: '' });
+  const [menuForm, setMenuForm] = useState({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: '', is_active: true, sort_order: '', image_url: '', warning_ko: '', warning_en: '', warning_zh: '', estimated_time: '', length_extra: false });
   const [isAddingMenu, setIsAddingMenu] = useState(false);
 
   // Language Tab State
@@ -30,8 +30,9 @@ export default function MenuAdmin({ session }) {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: catData } = await supabase.from('categories').select('*').order('sort_order', { ascending: true });
-    const { data: menuData } = await supabase.from('menu_items').select('*').order('sort_order', { ascending: true });
+    const dummyId = 'dummy-' + Date.now();
+    const { data: catData } = await supabase.from('categories').select('*').neq('id', dummyId).order('sort_order', { ascending: true });
+    const { data: menuData } = await supabase.from('menu_items').select('*').neq('id', dummyId).order('sort_order', { ascending: true });
     
     setCategories(catData || []);
     setMenuItems(menuData || []);
@@ -85,13 +86,24 @@ export default function MenuAdmin({ session }) {
   const startAddMenu = () => {
     if (!selectedCatId) return alert('카테고리를 먼저 선택하세요.');
     const catMenus = menuItems.filter(m => m.category_id === selectedCatId);
-    setMenuForm({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: 0, is_active: true, sort_order: catMenus.length + 1 });
+    setMenuForm({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: 0, is_active: true, sort_order: catMenus.length + 1, image_url: '', warning_ko: '', warning_en: '', warning_zh: '', estimated_time: '', length_extra: false });
     setIsAddingMenu(true);
     setEditMenuId(null);
   };
 
   const startEditMenu = (menu) => {
-    setMenuForm({ ...menu });
+    setMenuForm({
+      ...menu,
+      price: Number(menu.price) || 0,
+      is_active: menu.is_active ?? true,
+      sort_order: Number(menu.sort_order) || 0,
+      image_url: menu.image_url || '',
+      warning_ko: menu.warning_ko || '',
+      warning_en: menu.warning_en || '',
+      warning_zh: menu.warning_zh || '',
+      estimated_time: menu.estimated_time || '',
+      length_extra: menu.length_extra || false
+    });
     setEditMenuId(menu.id);
     setIsAddingMenu(false);
   };
@@ -122,6 +134,67 @@ export default function MenuAdmin({ session }) {
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
     if (error) alert('삭제 실패: ' + error.message);
     else fetchData();
+  };
+
+  const handleAutoTranslate = async () => {
+    if (!menuForm.name_ko && !menuForm.desc_ko && !menuForm.warning_ko) {
+      return alert('번역할 한글 내용이 없습니다. 먼저 한글 내용을 입력해주세요.');
+    }
+    
+    try {
+      // 미용실 전문 용어 사전 (구글 번역기 오역 방지)
+      const applyGlossary = (text, target) => {
+        if (!text) return text;
+        let res = text;
+        if (target === 'en') {
+          res = res.replace(/원장님/g, 'Director')
+                   .replace(/원장/g, 'Director')
+                   .replace(/기장추가/g, 'Extra length charge')
+                   .replace(/여성컷/g, "Women's Cut")
+                   .replace(/남성컷/g, "Men's Cut")
+                   .replace(/매직/g, 'Magic Straight')
+                   .replace(/셋팅/g, 'Setting Perm')
+                   .replace(/뿌리/g, 'Root')
+                   .replace(/복구/g, 'Repair');
+        } else if (target === 'zh-CN') {
+          res = res.replace(/원장님/g, '院长')
+                   .replace(/원장/g, '院长')
+                   .replace(/여성컷/g, '女士剪发')
+                   .replace(/남성컷/g, '男士剪发')
+                   .replace(/매직/g, '魔术直发')
+                   .replace(/셋팅/g, '热烫')
+                   .replace(/기장추가/g, '加长收费');
+        }
+        return res;
+      };
+
+      const translate = async (text, target) => {
+        if (!text) return '';
+        const preProcessed = applyGlossary(text, target);
+        const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=${target}&dt=t&q=${encodeURIComponent(preProcessed)}`);
+        const data = await res.json();
+        return data[0].map(item => item[0]).join('');
+      };
+
+      const [name_en, desc_en, warning_en, name_zh, desc_zh, warning_zh] = await Promise.all([
+        translate(menuForm.name_ko, 'en'),
+        translate(menuForm.desc_ko, 'en'),
+        translate(menuForm.warning_ko, 'en'),
+        translate(menuForm.name_ko, 'zh-CN'),
+        translate(menuForm.desc_ko, 'zh-CN'),
+        translate(menuForm.warning_ko, 'zh-CN'),
+      ]);
+
+      setMenuForm(prev => ({
+        ...prev,
+        name_en, desc_en, warning_en,
+        name_zh, desc_zh, warning_zh
+      }));
+      alert('자동 번역이 완료되었습니다! EN/中 탭을 확인해보세요.');
+    } catch (e) {
+      alert('번역 중 오류가 발생했습니다.');
+      console.error(e);
+    }
   };
 
   return (
@@ -213,33 +286,75 @@ export default function MenuAdmin({ session }) {
                   <li className="admin-list-item editing">
                     <div className="form-group"><label>메뉴 ID (예: cut_01)</label><input type="text" placeholder="고유 영문 ID" value={menuForm.id} onChange={e => setMenuForm({...menuForm, id: e.target.value})} /></div>
                     
-                    <div className="lang-tabs">
-                      <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
-                      <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
-                      <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', marginTop: '16px', gap: '12px' }}>
+                      <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
+                        <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
+                        <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
+                        <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={handleAutoTranslate} 
+                        style={{ 
+                          background: 'rgba(212, 175, 106, 0.08)', 
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(212, 175, 106, 0.2)', 
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                          color: 'var(--gold-main)', 
+                          padding: '0 20px', 
+                          borderRadius: '20px', 
+                          cursor: 'pointer', 
+                          fontSize: '13px', 
+                          fontWeight: '500',
+                          letterSpacing: '0.5px',
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          flexShrink: 0, 
+                          height: '40px', 
+                          transition: 'all 0.2s ease' 
+                        }}
+                        onMouseEnter={e => { e.target.style.background = 'rgba(212, 175, 106, 0.15)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.3)'; }}
+                        onMouseLeave={e => { e.target.style.background = 'rgba(212, 175, 106, 0.08)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.2)'; }}
+                      >
+                        AI 자동 번역
+                      </button>
                     </div>
 
                     {langTab === 'ko' && (
                       <>
-                        <div className="form-group"><label>메뉴 한글명</label><input type="text" placeholder="예: 남성 컷" value={menuForm.name_ko || ''} onChange={e => setMenuForm({...menuForm, name_ko: e.target.value})} /></div>
-                        <div className="form-group"><label>메뉴 설명 (한글)</label><textarea placeholder="메뉴에 대한 상세 설명" value={menuForm.desc_ko || ''} onChange={e => setMenuForm({...menuForm, desc_ko: e.target.value})} /></div>
+                        <div className="form-group"><label>메뉴명 (한글)</label><input type="text" value={menuForm.name_ko} onChange={e => setMenuForm({...menuForm, name_ko: e.target.value})} /></div>
+                        <div className="form-group"><label>메뉴 설명 (한글, 선택)</label><textarea value={menuForm.desc_ko} onChange={e => setMenuForm({...menuForm, desc_ko: e.target.value})} /></div>
+                        <div className="form-group"><label>시술 주의사항 (한글, 선택)</label><textarea placeholder="예: 탈색 시 모발 손상이 있을 수 있습니다." value={menuForm.warning_ko || ''} onChange={e => setMenuForm({...menuForm, warning_ko: e.target.value})} /></div>
                       </>
                     )}
                     {langTab === 'en' && (
                       <>
-                        <div className="form-group"><label>메뉴 영문명</label><input type="text" placeholder="예: Men's Cut" value={menuForm.name_en || ''} onChange={e => setMenuForm({...menuForm, name_en: e.target.value})} /></div>
-                        <div className="form-group"><label>메뉴 설명 (영문)</label><textarea placeholder="Description" value={menuForm.desc_en || ''} onChange={e => setMenuForm({...menuForm, desc_en: e.target.value})} /></div>
+                        <div className="form-group"><label>메뉴명 (영문)</label><input type="text" value={menuForm.name_en} onChange={e => setMenuForm({...menuForm, name_en: e.target.value})} /></div>
+                        <div className="form-group"><label>메뉴 설명 (영문, 선택)</label><textarea value={menuForm.desc_en} onChange={e => setMenuForm({...menuForm, desc_en: e.target.value})} /></div>
+                        <div className="form-group"><label>시술 주의사항 (영문, 선택)</label><textarea placeholder="e.g. Hair damage may occur..." value={menuForm.warning_en || ''} onChange={e => setMenuForm({...menuForm, warning_en: e.target.value})} /></div>
                       </>
                     )}
                     {langTab === 'zh' && (
                       <>
-                        <div className="form-group"><label>메뉴 중문명</label><input type="text" placeholder="예: 男士修剪" value={menuForm.name_zh || ''} onChange={e => setMenuForm({...menuForm, name_zh: e.target.value})} /></div>
-                        <div className="form-group"><label>메뉴 설명 (중문)</label><textarea placeholder="说明" value={menuForm.desc_zh || ''} onChange={e => setMenuForm({...menuForm, desc_zh: e.target.value})} /></div>
+                        <div className="form-group"><label>메뉴명 (중문)</label><input type="text" value={menuForm.name_zh} onChange={e => setMenuForm({...menuForm, name_zh: e.target.value})} /></div>
+                        <div className="form-group"><label>메뉴 설명 (중문, 선택)</label><textarea value={menuForm.desc_zh} onChange={e => setMenuForm({...menuForm, desc_zh: e.target.value})} /></div>
+                        <div className="form-group"><label>시술 주의사항 (중문, 선택)</label><textarea placeholder="e.g. 可能会出现头发受损..." value={menuForm.warning_zh || ''} onChange={e => setMenuForm({...menuForm, warning_zh: e.target.value})} /></div>
                       </>
                     )}
                     <div className="form-group"><label>가격 (원)</label><input type="number" placeholder="숫자만 입력" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: Number(e.target.value)})} /></div>
+                    <div className="form-group"><label>이미지 URL (여러 장은 쉼표(,)로 구분)</label><input type="text" placeholder="https://..., https://..." value={menuForm.image_url || ''} onChange={e => setMenuForm({...menuForm, image_url: e.target.value})} /></div>
+                    <div className="form-group"><label>예상 소요 시간 (분 단위)</label><input type="number" placeholder="예: 90 (1시간 30분)" value={menuForm.estimated_time || ''} onChange={e => setMenuForm({...menuForm, estimated_time: e.target.value === '' ? '' : Number(e.target.value)})} /></div>
                     <div className="form-group"><label>정렬 순서</label><input type="number" placeholder="순서" value={menuForm.sort_order} onChange={e => setMenuForm({...menuForm, sort_order: Number(e.target.value)})} /></div>
-                    <div className="form-group"><label>운영 상태</label><label style={{ fontSize: '14px', marginTop: '4px' }}><input type="checkbox" checked={menuForm.is_active} onChange={e => setMenuForm({...menuForm, is_active: e.target.checked})} /> 메뉴판에 노출 (활성화)</label></div>
+                    <div className="form-group"><label>옵션 설정</label>
+                      <label style={{ fontSize: '14px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="checkbox" checked={menuForm.length_extra} onChange={e => setMenuForm({...menuForm, length_extra: e.target.checked})} /> 기장 추가 비용 별도
+                      </label>
+                      <label style={{ fontSize: '14px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="checkbox" checked={menuForm.is_active} onChange={e => setMenuForm({...menuForm, is_active: e.target.checked})} /> 메뉴판에 노출 (활성화)
+                      </label>
+                    </div>
                     <div className="actions">
                       <button onClick={saveMenu}>저장</button>
                       <button onClick={() => setIsAddingMenu(false)}>취소</button>
@@ -252,36 +367,73 @@ export default function MenuAdmin({ session }) {
                       <div className="edit-form">
                         <div className="form-group"><label>메뉴 ID (수정불가)</label><input type="text" disabled value={menuForm.id} /></div>
 
-                        <div className="lang-tabs">
-                          <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
-                          <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
-                          <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
+                          <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
+                            <button type="button" className={`lang-tab ${langTab === 'ko' ? 'active' : ''}`} onClick={() => setLangTab('ko')}>한</button>
+                            <button type="button" className={`lang-tab ${langTab === 'en' ? 'active' : ''}`} onClick={() => setLangTab('en')}>EN</button>
+                            <button type="button" className={`lang-tab ${langTab === 'zh' ? 'active' : ''}`} onClick={() => setLangTab('zh')}>中</button>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={handleAutoTranslate} 
+                            style={{ 
+                              background: 'rgba(212, 175, 106, 0.08)', 
+                              backdropFilter: 'blur(8px)',
+                              WebkitBackdropFilter: 'blur(8px)',
+                              border: '1px solid rgba(212, 175, 106, 0.2)', 
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                              color: 'var(--gold-main)', 
+                              padding: '0 20px', 
+                              borderRadius: '20px', 
+                              cursor: 'pointer', 
+                              fontSize: '13px', 
+                              fontWeight: '500',
+                              letterSpacing: '0.5px',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              flexShrink: 0, 
+                              height: '40px', 
+                              transition: 'all 0.2s ease' 
+                            }}
+                            onMouseEnter={e => { e.target.style.background = 'rgba(212, 175, 106, 0.15)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.3)'; }}
+                            onMouseLeave={e => { e.target.style.background = 'rgba(212, 175, 106, 0.08)'; e.target.style.border = '1px solid rgba(212, 175, 106, 0.2)'; }}
+                          >
+                            AI 자동 번역
+                          </button>
                         </div>
 
                         {langTab === 'ko' && (
                           <>
                             <div className="form-group"><label>메뉴 한글명</label><input type="text" placeholder="한글명" value={menuForm.name_ko || ''} onChange={e => setMenuForm({...menuForm, name_ko: e.target.value})} /></div>
                             <div className="form-group"><label>메뉴 설명 (한글)</label><textarea placeholder="설명" value={menuForm.desc_ko || ''} onChange={e => setMenuForm({...menuForm, desc_ko: e.target.value})} /></div>
+                            <div className="form-group"><label>시술 주의사항 (한글, 선택)</label><textarea placeholder="예: 탈색 시 모발 손상이 있을 수 있습니다." value={menuForm.warning_ko || ''} onChange={e => setMenuForm({...menuForm, warning_ko: e.target.value})} /></div>
                           </>
                         )}
                         {langTab === 'en' && (
                           <>
                             <div className="form-group"><label>메뉴 영문명</label><input type="text" placeholder="영문명" value={menuForm.name_en || ''} onChange={e => setMenuForm({...menuForm, name_en: e.target.value})} /></div>
                             <div className="form-group"><label>메뉴 설명 (영문)</label><textarea placeholder="Description" value={menuForm.desc_en || ''} onChange={e => setMenuForm({...menuForm, desc_en: e.target.value})} /></div>
+                            <div className="form-group"><label>시술 주의사항 (영문, 선택)</label><textarea placeholder="e.g. Hair damage may occur..." value={menuForm.warning_en || ''} onChange={e => setMenuForm({...menuForm, warning_en: e.target.value})} /></div>
                           </>
                         )}
                         {langTab === 'zh' && (
                           <>
                             <div className="form-group"><label>메뉴 중문명</label><input type="text" placeholder="중문명" value={menuForm.name_zh || ''} onChange={e => setMenuForm({...menuForm, name_zh: e.target.value})} /></div>
                             <div className="form-group"><label>메뉴 설명 (중문)</label><textarea placeholder="说明" value={menuForm.desc_zh || ''} onChange={e => setMenuForm({...menuForm, desc_zh: e.target.value})} /></div>
+                            <div className="form-group"><label>시술 주의사항 (중문, 선택)</label><textarea placeholder="e.g. 可能会出现头发受损..." value={menuForm.warning_zh || ''} onChange={e => setMenuForm({...menuForm, warning_zh: e.target.value})} /></div>
                           </>
                         )}
                         <div className="form-group"><label>가격 (원)</label><input type="number" placeholder="숫자만 입력" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: Number(e.target.value)})} /></div>
+                        <div className="form-group"><label>이미지 URL (여러 장은 쉼표(,)로 구분)</label><input type="text" placeholder="https://..., https://..." value={menuForm.image_url || ''} onChange={e => setMenuForm({...menuForm, image_url: e.target.value})} /></div>
+                        <div className="form-group"><label>예상 소요 시간 (분 단위)</label><input type="number" placeholder="예: 90 (1시간 30분)" value={menuForm.estimated_time || ''} onChange={e => setMenuForm({...menuForm, estimated_time: e.target.value === '' ? '' : Number(e.target.value)})} /></div>
                         <div className="form-group"><label>정렬 순서</label><input type="number" placeholder="순서" value={menuForm.sort_order} onChange={e => setMenuForm({...menuForm, sort_order: Number(e.target.value)})} /></div>
-                        <div className="form-group">
-                          <label>운영 상태</label>
-                          <label style={{ fontSize: '14px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <input type="checkbox" checked={menuForm.is_active} onChange={e => setMenuForm({...menuForm, is_active: e.target.checked})} /> 메뉴판에 노출 (활성)
+                        <div className="form-group"><label>옵션 설정</label>
+                          <label style={{ fontSize: '14px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input type="checkbox" checked={menuForm.length_extra} onChange={e => setMenuForm({...menuForm, length_extra: e.target.checked})} /> 기장 추가 비용 별도
+                          </label>
+                          <label style={{ fontSize: '14px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input type="checkbox" checked={menuForm.is_active} onChange={e => setMenuForm({...menuForm, is_active: e.target.checked})} /> 메뉴판에 노출 (활성화)
                           </label>
                         </div>
                         <div className="actions">

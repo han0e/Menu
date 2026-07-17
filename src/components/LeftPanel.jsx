@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import MenuCard from './MenuCard';
 import SecretHistoryButton from './SecretHistoryButton';
 
-export default function LeftPanel({ currentLang, currentCat, setCurrentCat, selectedIds, toggleItem, T, MENU_DATA, CATEGORIES }) {
+export default function LeftPanel({ currentLang, currentCat, setCurrentCat, selectedIds, toggleItem, onOpenLookbook, T, MENU_DATA, CATEGORIES }) {
   const items = MENU_DATA.filter(i => i.category === currentCat);
   const navRef = useRef(null);
   const touchStart = useRef({ x: 0, y: 0 });
@@ -39,6 +39,7 @@ export default function LeftPanel({ currentLang, currentCat, setCurrentCat, sele
     if (navRef.current) {
       // Need a small timeout to let React render the active class first, though scrollIntoView on the element itself might work immediately
       setTimeout(() => {
+        if (!navRef.current) return;
         const activeTab = navRef.current.querySelector(`.cat-tab[data-cat="${catId}"]`);
         if (activeTab) {
           activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -91,6 +92,7 @@ export default function LeftPanel({ currentLang, currentCat, setCurrentCat, sele
             currentLang={currentLang} 
             isSelected={selectedIds.has(item.id)}
             toggleItem={toggleItem}
+            onOpenLookbook={onOpenLookbook}
             T={T}
           />
         ))}

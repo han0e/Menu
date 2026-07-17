@@ -6,7 +6,8 @@ export default function SignatureModal({
   onClose, 
   onSubmit, 
   designers, 
-  currentLang 
+  currentLang,
+  selectedItems
 }) {
   const sigCanvas = useRef({});
   const [agreed, setAgreed] = useState(false);
@@ -17,6 +18,10 @@ export default function SignatureModal({
     if (currentLang === 'zh') return zh;
     return en;
   };
+
+  const getLang = (obj) => typeof obj === 'string' ? obj : (obj[currentLang] || obj?.ko || '');
+  const getName = (item) => getLang(item.name_ko ? { ko: item.name_ko, en: item.name_en, zh: item.name_zh } : item.name);
+  const itemsWithWarning = selectedItems?.filter(item => item.warning) || [];
 
   useEffect(() => {
     if (isOpen) {
@@ -65,7 +70,20 @@ export default function SignatureModal({
           {t('서명', 'Sign', '签名')}
         </h2>
         
-
+        {itemsWithWarning.length > 0 && (
+          <div className="warnings-box" style={{ background: 'rgba(220, 80, 80, 0.1)', border: '1px solid rgba(220, 80, 80, 0.4)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+            <h3 style={{ color: '#e08080', fontSize: '15px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 12px 0' }}>
+              {t('시술 전 주의사항', 'Pre-treatment Notice', '操作前注意事项')}
+            </h3>
+            <ul style={{ color: 'var(--txt-100)', fontSize: '14px', lineHeight: '1.6', margin: 0, paddingLeft: '20px' }}>
+              {itemsWithWarning.map(item => (
+                <li key={item.id} style={{ marginBottom: '8px' }}>
+                  <strong style={{ color: 'var(--gold-main)' }}>[{getName(item)}]</strong> {getLang(item.warning)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="terms-box">
           <label className="checkbox-label">
