@@ -201,6 +201,10 @@ export default function Main({ session }) {
       setIsSuccessDialogOpen(true);
       setIsModalOpen(false);
       resetAll();
+      
+      if (window.innerWidth <= 1024) {
+        setIsCartOpen(false);
+      }
 
     } catch (error) {
       console.error('Error submitting order:', error);
