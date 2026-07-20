@@ -26,6 +26,10 @@ export default function Main({ session }) {
   }, []);
 
   const fetchDbData = async () => {
+    if (!session || !session.user) {
+      setLoading(false);
+      return;
+    }
     try {
       const dummyId = 'dummy-' + Date.now();
       // 1. Fetch categories (캐시 방지용 dummy 조건 추가)
@@ -33,6 +37,7 @@ export default function Main({ session }) {
         .from('categories')
         .select('*')
         .neq('id', dummyId)
+        .eq('designer_id', session.user.id)
         .order('sort_order', { ascending: true });
       if (catError) {
         alert('카테고리 불러오기 실패: ' + catError.message);
@@ -45,6 +50,7 @@ export default function Main({ session }) {
         .select('*')
         .eq('is_active', true)
         .neq('id', dummyId)
+        .eq('designer_id', session.user.id)
         .order('sort_order', { ascending: true });
       if (menuError) {
         alert('메뉴 불러오기 실패: ' + menuError.message);
@@ -73,10 +79,10 @@ export default function Main({ session }) {
         estimated_time: dbItem.estimated_time
       }));
 
-      setCategories(catData ? catData.filter(c => c.id !== 'custom_cat') : []);
+      setCategories(catData ? catData.filter(c => !c.id.endsWith('custom_cat')) : []);
       setMenuData(formattedMenus);
       if (catData && catData.length > 0) {
-        const validCats = catData.filter(c => c.id !== 'custom_cat');
+        const validCats = catData.filter(c => !c.id.endsWith('custom_cat'));
         if (validCats.length > 0) {
           setCurrentCat(validCats[0].id);
         }
@@ -217,6 +223,16 @@ export default function Main({ session }) {
       }
     }
   };
+
+  if (!session || !session.user) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '20px', background: 'var(--bg-dark)' }}>
+        <h2 style={{ color: 'var(--gold-bright)' }}>로그인이 필요합니다</h2>
+        <p style={{ color: 'var(--txt-100)' }}>담당 디자이너 계정으로 로그인 후 메뉴판을 이용해주세요.</p>
+        <button onClick={() => window.location.href = '/'} className="submit-btn" style={{ maxWidth: '200px' }}>로그인 페이지로</button>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div key="loading-screen" className="loading-txt">메뉴 불러오는 중...</div>;

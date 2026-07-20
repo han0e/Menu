@@ -31,8 +31,8 @@ export default function MenuAdmin({ session }) {
   const fetchData = async () => {
     setLoading(true);
     const dummyId = 'dummy-' + Date.now();
-    const { data: catData } = await supabase.from('categories').select('*').neq('id', dummyId).order('sort_order', { ascending: true });
-    const { data: menuData } = await supabase.from('menu_items').select('*').neq('id', dummyId).order('sort_order', { ascending: true });
+    const { data: catData } = await supabase.from('categories').select('*').neq('id', dummyId).eq('designer_id', session.user.id).order('sort_order', { ascending: true });
+    const { data: menuData } = await supabase.from('menu_items').select('*').neq('id', dummyId).eq('designer_id', session.user.id).order('sort_order', { ascending: true });
     
     setCategories(catData || []);
     setMenuItems(menuData || []);
@@ -58,8 +58,15 @@ export default function MenuAdmin({ session }) {
   const saveCategory = async () => {
     if (!catForm.id || !catForm.name_ko || !catForm.name_en) return alert('모든 필드를 입력하세요.');
     
+    const catId = isAddingCat ? `${session.user.id}_${catForm.id}` : catForm.id;
+    const catPayload = {
+      ...catForm,
+      id: catId,
+      designer_id: session.user.id
+    };
+
     if (isAddingCat) {
-      const { error } = await supabase.from('categories').insert([catForm]);
+      const { error } = await supabase.from('categories').insert([catPayload]);
       if (error) alert('추가 실패: ' + error.message);
     } else {
       const { error } = await supabase.from('categories').update({
@@ -111,9 +118,12 @@ export default function MenuAdmin({ session }) {
   const saveMenu = async () => {
     if (!menuForm.id || !menuForm.name_ko || !menuForm.name_en) return alert('필수 필드를 입력하세요.');
     
+    const menuId = isAddingMenu ? `${session.user.id}_${menuForm.id}` : menuForm.id;
     const payload = {
       ...menuForm,
+      id: menuId,
       category_id: selectedCatId,
+      designer_id: session.user.id
     };
 
     if (isAddingMenu) {
@@ -134,6 +144,56 @@ export default function MenuAdmin({ session }) {
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
     if (error) alert('삭제 실패: ' + error.message);
     else fetchData();
+  };
+
+  const copyTemplates = async () => {
+    if (!window.confirm('기본 메뉴판(템플릿)을 내 계정으로 복사하시겠습니까?')) return;
+    setLoading(true);
+    
+    const { data: catTemplates } = await supabase.from('categories').select('*').is('designer_id', null);
+    const { data: menuTemplates } = await supabase.from('menu_items').select('*').is('designer_id', null);
+
+    if (!catTemplates || catTemplates.length === 0) {
+      alert('복사할 기본 템플릿 데이터가 없습니다.');
+      setLoading(false);
+      return;
+    }
+
+    const newCategories = catTemplates.map(c => {
+      const { created_at, ...rest } = c;
+      return {
+        ...rest,
+        id: `${session.user.id}_${c.id}`,
+        designer_id: session.user.id
+      };
+    });
+    
+    const { error: catError } = await supabase.from('categories').insert(newCategories);
+    if (catError) {
+      alert('카테고리 복사 실패: ' + catError.message);
+      setLoading(false);
+      return;
+    }
+
+    const newMenus = menuTemplates.map(m => {
+      const { created_at, ...rest } = m;
+      return {
+        ...rest,
+        id: `${session.user.id}_${m.id}`,
+        category_id: `${session.user.id}_${m.category_id}`,
+        designer_id: session.user.id
+      };
+    });
+
+    if (newMenus.length > 0) {
+      const { error: menuError } = await supabase.from('menu_items').insert(newMenus);
+      if (menuError) {
+        alert('메뉴 복사 실패: ' + menuError.message);
+      }
+    }
+
+    alert('기본 메뉴판 세팅이 완료되었습니다!');
+    fetchData();
   };
 
   const handleAutoTranslateCat = async () => {
@@ -253,12 +313,19 @@ export default function MenuAdmin({ session }) {
             <div className="admin-panel categories-panel">
               <div className="panel-header">
                 <h2>카테고리 관리</h2>
-                <button className="text-btn" onClick={startAddCat}>+ 카테고리 추가</button>
+                <div>
+                  {categories.length === 0 && (
+                    <button className="text-btn" onClick={copyTemplates} style={{ marginRight: '10px', color: 'var(--gold-bright)', background: 'rgba(212, 175, 106, 0.15)', padding: '6px 12px', borderRadius: '4px' }}>
+                      ✨ 기본 메뉴판 세팅하기
+                    </button>
+                  )}
+                  <button className="text-btn" onClick={startAddCat}>+ 카테고리 추가</button>
+                </div>
               </div>
               <ul className="admin-list">
                 {isAddingCat && (
                   <li className="admin-list-item editing">
-                    <div className="form-group"><label>카테고리 ID (예: cut)</label><input type="text" placeholder="영문 소문자 권장" value={catForm.id} onChange={e => setCatForm({...catForm, id: e.target.value})} /></div>
+                    <div className="form-group"><label>카테고리 ID (예: cut)</label><input type="text" placeholder="영문 소문자 권장" value={catForm.id ? catForm.id.replace(`${session.user.id}_`, '') : ''} onChange={e => setCatForm({...catForm, id: e.target.value})} /></div>
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', marginTop: '16px', gap: '12px' }}>
                       <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
@@ -310,7 +377,7 @@ export default function MenuAdmin({ session }) {
                   <li key={cat.id} className={`admin-list-item ${selectedCatId === cat.id && editCatId !== cat.id ? 'selected' : ''} ${editCatId === cat.id ? 'editing' : ''}`} onClick={() => !editCatId && setSelectedCatId(cat.id)}>
                     {editCatId === cat.id ? (
                       <div className="edit-form">
-                        <div className="form-group"><label>카테고리 ID (수정불가)</label><input type="text" disabled value={catForm.id} /></div>
+                        <div className="form-group"><label>카테고리 ID (수정불가)</label><input type="text" disabled value={catForm.id ? catForm.id.replace(`${session.user.id}_`, '') : ''} /></div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', marginTop: '16px', gap: '12px' }}>
                           <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
@@ -360,10 +427,10 @@ export default function MenuAdmin({ session }) {
                     ) : (
                       <div className="view-row">
                         <span className="sort-badge">{cat.sort_order}</span>
-                        <span className="title">{cat.name_ko} ({cat.id})</span>
+                        <span className="title">{cat.name_ko} ({cat.id.replace(`${session.user.id}_`, '')})</span>
                         <div className="actions">
                           <button onClick={(e) => { e.stopPropagation(); startEditCat(cat); }}>수정</button>
-                          {cat.id !== 'custom_cat' && <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}>삭제</button>}
+                          {!cat.id.endsWith('custom_cat') && <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}>삭제</button>}
                         </div>
                       </div>
                     )}
@@ -381,7 +448,7 @@ export default function MenuAdmin({ session }) {
               <ul className="admin-list">
                 {isAddingMenu && (
                   <li className="admin-list-item editing">
-                    <div className="form-group"><label>메뉴 ID (예: cut_01)</label><input type="text" placeholder="고유 영문 ID" value={menuForm.id} onChange={e => setMenuForm({...menuForm, id: e.target.value})} /></div>
+                    <div className="form-group"><label>메뉴 ID (예: cut_01)</label><input type="text" placeholder="고유 영문 ID" value={menuForm.id ? menuForm.id.replace(`${session.user.id}_`, '') : ''} onChange={e => setMenuForm({...menuForm, id: e.target.value})} /></div>
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', marginTop: '16px', gap: '12px' }}>
                       <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
@@ -462,7 +529,7 @@ export default function MenuAdmin({ session }) {
                   <li key={menu.id} className={`admin-list-item ${editMenuId === menu.id ? 'editing' : ''}`}>
                     {editMenuId === menu.id ? (
                       <div className="edit-form">
-                        <div className="form-group"><label>메뉴 ID (수정불가)</label><input type="text" disabled value={menuForm.id} /></div>
+                        <div className="form-group"><label>메뉴 ID (수정불가)</label><input type="text" disabled value={menuForm.id ? menuForm.id.replace(`${session.user.id}_`, '') : ''} /></div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
                           <div className="lang-tabs" style={{ marginBottom: 0, flex: 1, maxWidth: '240px' }}>
@@ -550,7 +617,7 @@ export default function MenuAdmin({ session }) {
                         </div>
                         <div className="actions">
                           <button onClick={() => startEditMenu(menu)}>수정</button>
-                          {menu.id !== 'custom' && <button onClick={() => deleteMenu(menu.id)}>삭제</button>}
+                          {!menu.id.endsWith('custom') && <button onClick={() => deleteMenu(menu.id)}>삭제</button>}
                         </div>
                       </div>
                     )}

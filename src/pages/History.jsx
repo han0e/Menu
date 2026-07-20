@@ -113,7 +113,7 @@ export default function History({ session }) {
     try {
       const { data, error } = await supabase.from('menu_items').select('*');
       if (!error && data) {
-        setAllMenus(data.filter(m => m.id !== 'custom'));
+        setAllMenus(data.filter(m => !m.id.endsWith('custom')));
       }
     } catch (err) {
       console.error(err);
@@ -190,7 +190,7 @@ export default function History({ session }) {
     const menuId = e.target.value;
     if (!menuId) return;
 
-    if (menuId === 'custom') {
+    if (menuId === 'custom' || menuId.endsWith('_custom')) {
       setCustomMenuMode(true);
       e.target.value = '';
       return;
@@ -222,7 +222,7 @@ export default function History({ session }) {
     const price = Number(customMenuPrice.replace(/[^0-9]/g, ''));
     
     const newItem = {
-      menu_item_id: 'custom',
+      menu_item_id: session?.user?.id ? `${session.user.id}_custom` : 'custom',
       price_at_time: price,
       menu_items: { name_ko: '기타 시술 (직접 입력)', name_en: 'Custom Item' }
     };
