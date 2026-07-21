@@ -80,6 +80,11 @@ export default function MenuAdmin({ session }) {
     if (catData && catData.length > 0 && !selectedCatId) {
       setSelectedCatId(catData[0].id);
     }
+    // 모든 카테고리를 접힌 상태로 초기화
+    if (catData && catData.length > 0) {
+      const allCollapsed = Object.fromEntries(catData.map((c) => [c.id, true]));
+      setCollapsedCats(allCollapsed);
+    }
     setLoading(false);
   };
 
