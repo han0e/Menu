@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { useModal } from '../context/ModalContext';
 import { useNavigate } from 'react-router-dom';
 import UserHeaderMenu from '../components/UserHeaderMenu';
 import '../index.css';
@@ -29,7 +30,7 @@ export default function History({ session }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const { showAlert, showConfirm } = useModal();
 
   // Helper to get today string
   const getTodayStr = () => {
@@ -124,7 +125,7 @@ export default function History({ session }) {
 
   const startPress = (orderId) => {
     longPressTimer.current = setTimeout(() => {
-      setDeleteConfirmId(orderId);
+      showConfirm('내역 삭제', '이 결제 내역을 영구적으로 삭제하시겠습니까?', () => deleteOrder(orderId));
     }, 800); // 800ms for long press
   };
 
@@ -156,7 +157,7 @@ export default function History({ session }) {
       if (error) throw error;
       setOrders(prev => prev.filter(o => o.id !== orderId));
     } catch (err) {
-      alert('삭제 중 오류가 발생했습니다: ' + err.message);
+      showAlert('오류', '삭제 중 오류가 발생했습니다: : ' + err.message);
     }
   };
 
@@ -270,7 +271,7 @@ export default function History({ session }) {
       ));
       setEditingOrderId(null);
     } catch (err) {
-      alert('수정 중 오류가 발생했습니다: ' + err.message);
+      showAlert('오류', '수정 중 오류가 발생했습니다: : ' + err.message);
     }
   };
 
@@ -308,7 +309,8 @@ export default function History({ session }) {
     <div className="history-page">
       <div className="history-header">
         <button className="back-btn" onClick={() => navigate('/')}>
-          ← 돌아가기
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          돌아가기
         </button>
         <h1 className="history-title">결제 내역 조회</h1>
         <div className="history-header-right">
@@ -504,28 +506,7 @@ export default function History({ session }) {
         )}
       </div>
 
-      {deleteConfirmId && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ textAlign: 'center', padding: '30px' }}>
-            <h2 style={{ color: 'var(--gold-bright)', fontSize: '24px', marginBottom: '8px' }}>
-              내역 삭제
-            </h2>
-            <div className="panel-rule" style={{ marginBottom: '20px' }}>
-              <span className="pr-line"></span><span className="pr-gem">◆</span><span className="pr-line"></span>
-            </div>
-            <p style={{ fontSize: '16px', color: 'var(--txt-100)', marginBottom: '30px' }}>
-              이 결제 내역을 영구적으로 삭제하시겠습니까?
-            </p>
-            <div className="modal-actions">
-              <button className="cancel-btn" onClick={() => setDeleteConfirmId(null)}>취소</button>
-              <button className="submit-btn" onClick={() => {
-                deleteOrder(deleteConfirmId);
-                setDeleteConfirmId(null);
-              }}>삭제하기</button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

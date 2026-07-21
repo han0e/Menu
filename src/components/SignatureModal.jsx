@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
+import { useModal } from '../context/ModalContext';
 
 export default function SignatureModal({ 
   isOpen, 
@@ -12,6 +13,7 @@ export default function SignatureModal({
   const sigCanvas = useRef({});
   const [agreed, setAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showAlert } = useModal();
 
   const t = (ko, en, zh) => {
     if (currentLang === 'ko') return ko;
@@ -40,8 +42,8 @@ export default function SignatureModal({
   };
 
   const handleSubmit = async () => {
-    if (!agreed) return alert(t('면책 사항에 동의해주세요.', 'Please agree to the terms.', '请同意免责声明。'));
-    if (sigCanvas.current.isEmpty()) return alert(t('서명을 입력해주세요.', 'Please provide a signature.', '请提供签名。'));
+    if (!agreed) { showAlert('알림', t('면책 사항에 동의해주세요.', 'Please agree to the terms.', '请同意免责声明。')); return; }
+    if (sigCanvas.current.isEmpty()) { showAlert('알림', t('서명을 입력해주세요.', 'Please provide a signature.', '请提供签名。')); return; }
 
     setIsSubmitting(true);
     

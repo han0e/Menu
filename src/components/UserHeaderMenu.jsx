@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useModal } from "../context/ModalContext";
 import { supabase } from "../supabaseClient";
 
 const SettingsIcon = () => (
@@ -76,35 +77,9 @@ export default function UserHeaderMenu({ session }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    type: "alert", // 'alert' | 'confirm'
-    onConfirm: null,
-  });
+  const { showAlert: showCustomAlert, showConfirm: showCustomConfirm } = useModal();
 
   const displayName = session?.user?.user_metadata?.display_name || "디자이너";
-
-  const showCustomAlert = (title, message, onConfirm = null) => {
-    setModalConfig({
-      isOpen: true,
-      title,
-      message,
-      type: "alert",
-      onConfirm,
-    });
-  };
-
-  const showCustomConfirm = (title, message, onConfirm) => {
-    setModalConfig({
-      isOpen: true,
-      title,
-      message,
-      type: "confirm",
-      onConfirm,
-    });
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -117,7 +92,7 @@ export default function UserHeaderMenu({ session }) {
       // 1. 비밀번호 변경 시 기존 비밀번호 검증 (Re-Authentication)
       if (newPassword) {
         if (!currentPassword) {
-          alert("비밀번호를 변경하려면 기존 비밀번호를 입력해야 합니다.");
+          showCustomAlert('알림', '비밀번호를 변경하려면 기존 비밀번호를 입력해야 합니다.');
           setIsUpdating(false);
           return;
         }
@@ -128,7 +103,7 @@ export default function UserHeaderMenu({ session }) {
         });
 
         if (reauthError) {
-          alert("기존 비밀번호가 일치하지 않습니다.");
+          showCustomAlert('알림', '기존 비밀번호가 일치하지 않습니다.');
           setIsUpdating(false);
           return;
         }
@@ -229,7 +204,7 @@ export default function UserHeaderMenu({ session }) {
       {dropdownOpen && (
         <div className="user-dropdown">
           <button onClick={() => navigate("/admin/menus")}>
-            <SettingsIcon /> 메뉴설정
+            <SettingsIcon /> 설정
           </button>
           <button
             onClick={() => {
@@ -394,104 +369,6 @@ export default function UserHeaderMenu({ session }) {
         </div>
       )}
 
-      {modalConfig.isOpen && (
-        <div className="modal-overlay" style={{ zIndex: 10000 }}>
-          <div
-            className="modal-content"
-            style={{
-              textAlign: "center",
-              padding: "30px",
-              maxWidth: "420px",
-              width: "90%",
-            }}
-          >
-            <h2
-              style={{
-                color: "var(--gold-bright)",
-                fontSize: "20px",
-                marginBottom: "8px",
-              }}
-            >
-              {modalConfig.title}
-            </h2>
-            <div className="panel-rule" style={{ marginBottom: "20px" }}>
-              <span className="pr-line"></span>
-              <span className="pr-gem">◆</span>
-              <span className="pr-line"></span>
-            </div>
-            <p
-              style={{
-                fontSize: "14px",
-                color: "var(--txt-100)",
-                marginBottom: "30px",
-                whiteSpace: "pre-line",
-                lineHeight: "1.6",
-                textAlign: "center",
-              }}
-            >
-              {modalConfig.message}
-            </p>
-            <div
-              className="modal-actions"
-              style={{ display: "flex", gap: "10px", justifyContent: "center" }}
-            >
-              {modalConfig.type === "confirm" ? (
-                <>
-                  <button
-                    className="submit-btn"
-                    style={{
-                      flex: 1,
-                      padding: "12px",
-                      borderRadius: "8px",
-                      background: "var(--gold-dim)",
-                      color: "#fff",
-                      border: "none",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                    }}
-                    onClick={() => {
-                      const cb = modalConfig.onConfirm;
-                      setModalConfig((prev) => ({ ...prev, isOpen: false }));
-                      cb?.();
-                    }}
-                  >
-                    확인
-                  </button>
-                  <button
-                    style={{
-                      flex: 1,
-                      padding: "12px",
-                      borderRadius: "8px",
-                      background: "var(--surface-3)",
-                      color: "#fff",
-                      border: "none",
-                      cursor: "pointer",
-                      fontWeight: 600,
-                    }}
-                    onClick={() =>
-                      setModalConfig({ ...modalConfig, isOpen: false })
-                    }
-                  >
-                    취소
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="submit-btn"
-                  style={{ maxWidth: "160px", padding: "12px", width: "100%" }}
-                  onClick={() => {
-                    const cb = modalConfig.onConfirm;
-                    setModalConfig((prev) => ({ ...prev, isOpen: false }));
-                    cb?.();
-                  }}
-                >
-                  확인
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import RightPanel from "../components/RightPanel";
 import SignatureModal from "../components/SignatureModal";
 import { T } from "../data/menuData"; // MENU_DATA is no longer imported
 import { supabase } from "../supabaseClient";
+import { useModal } from "../context/ModalContext";
 import InspirationGallery from "../components/InspirationGallery";
 
 export default function Main({ session }) {
@@ -40,7 +41,7 @@ export default function Main({ session }) {
         .eq("designer_id", session.user.id)
         .order("sort_order", { ascending: true });
       if (catError) {
-        alert("카테고리 불러오기 실패: " + catError.message);
+        showAlert('오류', '카테고리 불러오기 실패: ' + catError.message);
         throw catError;
       }
 
@@ -53,12 +54,12 @@ export default function Main({ session }) {
         .eq("designer_id", session.user.id)
         .order("sort_order", { ascending: true });
       if (menuError) {
-        alert("메뉴 불러오기 실패: " + menuError.message);
+        showAlert('오류', '메뉴 불러오기 실패: ' + menuError.message);
         throw menuError;
       }
 
       if (!catData || catData.length === 0) {
-        alert("카테고리 데이터가 0개입니다. DB에 데이터가 없습니다!");
+        showAlert('알림', '카테고리 데이터가 0개입니다. DB에 데이터가 없습니다!');
       }
 
       // Transform to match old static structure
@@ -244,11 +245,11 @@ export default function Main({ session }) {
     } catch (error) {
       console.error("Error submitting order:", error);
       if (currentLang === "ko") {
-        alert("처리 중 오류가 발생했습니다: " + error.message);
+        showAlert('오류', '처리 중 오류가 발생했습니다: ' + error.message);
       } else if (currentLang === "zh") {
-        alert("处理订单时出错: " + error.message);
+        showAlert('오류', '处理订单时出错: ' + error.message);
       } else {
-        alert("Error processing order: " + error.message);
+        showAlert('오류', 'Error processing order: ' + error.message);
       }
     }
   };

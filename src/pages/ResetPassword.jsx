@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { useModal } from "../context/ModalContext";
 import { useNavigate } from "react-router-dom";
 import "../index.css";
 
@@ -9,20 +10,10 @@ export default function ResetPassword() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionInfo, setSessionInfo] = useState(null);
-  const [modalConfig, setModalConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    onConfirm: null,
-  });
+  const { showAlert: showCustomAlert } = useModal();
 
   const showAlert = (title, message, onConfirm = null) => {
-    setModalConfig({
-      isOpen: true,
-      title,
-      message,
-      onConfirm,
-    });
+    showCustomAlert(title, message, onConfirm);
   };
 
   const getErrorMessage = (message) => {
@@ -135,62 +126,6 @@ export default function ResetPassword() {
         </form>
       </div>
 
-      {modalConfig.isOpen && (
-        <div className="modal-overlay" style={{ zIndex: 10000 }}>
-          <div
-            className="modal-content"
-            style={{
-              textAlign: "center",
-              padding: "30px",
-              maxWidth: "420px",
-              width: "90%",
-            }}
-          >
-            <h2
-              style={{
-                color: "var(--gold-bright)",
-                fontSize: "20px",
-                marginBottom: "8px",
-              }}
-            >
-              {modalConfig.title}
-            </h2>
-            <div className="panel-rule" style={{ marginBottom: "20px" }}>
-              <span className="pr-line"></span>
-              <span className="pr-gem">◆</span>
-              <span className="pr-line"></span>
-            </div>
-            <p
-              style={{
-                fontSize: "14px",
-                color: "var(--txt-100)",
-                marginBottom: "30px",
-                whiteSpace: "pre-line",
-                lineHeight: "1.6",
-                textAlign: "center",
-              }}
-            >
-              {modalConfig.message}
-            </p>
-            <div
-              className="modal-actions"
-              style={{ display: "flex", justifyContent: "center" }}
-            >
-              <button
-                className="submit-btn"
-                style={{ maxWidth: "160px", padding: "12px", width: "100%" }}
-                onClick={() => {
-                  const cb = modalConfig.onConfirm;
-                  setModalConfig((prev) => ({ ...prev, isOpen: false }));
-                  cb?.();
-                }}
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

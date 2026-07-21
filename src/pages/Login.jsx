@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient";
+import { useModal } from "../context/ModalContext";
 import "../index.css";
 
 export default function Login() {
@@ -11,11 +12,7 @@ export default function Login() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [designerName, setDesignerName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [modalConfig, setModalConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-  });
+  const { showAlert: showCustomAlert } = useModal();
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [modalType, setModalType] = useState(null); // 'terms' | 'privacy' | null
@@ -63,7 +60,7 @@ export default function Login() {
 
   const showAlert = (title, message) => {
     const translatedMessage = getErrorMessage(message);
-    setModalConfig({ isOpen: true, title, message: translatedMessage });
+    showCustomAlert(title, translatedMessage);
   };
 
   const handleSubmit = async (e) => {
@@ -359,50 +356,6 @@ export default function Login() {
           )}
         </div>
       </div>
-
-      {modalConfig.isOpen && (
-        <div className="modal-overlay">
-          <div
-            className="modal-content"
-            style={{ textAlign: "center", padding: "30px" }}
-          >
-            <h2
-              style={{
-                color: "var(--gold-bright)",
-                fontSize: "24px",
-                marginBottom: "8px",
-              }}
-            >
-              {modalConfig.title}
-            </h2>
-            <div className="panel-rule" style={{ marginBottom: "20px" }}>
-              <span className="pr-line"></span>
-              <span className="pr-gem">◆</span>
-              <span className="pr-line"></span>
-            </div>
-            <p
-              style={{
-                fontSize: "16px",
-                color: "var(--txt-100)",
-                marginBottom: "30px",
-                whiteSpace: "pre-line",
-              }}
-            >
-              {modalConfig.message}
-            </p>
-            <div className="modal-actions">
-              <button
-                className="submit-btn"
-                onClick={() =>
-                  setModalConfig({ ...modalConfig, isOpen: false })
-                }
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {modalType && (
         <div className="modal-overlay" style={{ zIndex: 10000 }}>

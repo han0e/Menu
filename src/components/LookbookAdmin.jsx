@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
+import { useModal } from '../context/ModalContext';
 import '../index.css';
 
 export default function LookbookAdmin({ session }) {
@@ -12,7 +13,7 @@ export default function LookbookAdmin({ session }) {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [gridSize, setGridSize] = useState(150);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { showAlert, showConfirm } = useModal();
   const [uploadCategory, setUploadCategory] = useState('cut'); // 'cut' | 'perm' | 'color' | 'styling' | 'etc'
 
   const CATEGORY_LABEL = {
@@ -79,7 +80,7 @@ export default function LookbookAdmin({ session }) {
 
       const { error } = await supabase.storage.from('lookbook').upload(filePath, file);
       if (error) {
-        alert('업로드 실패: ' + error.message);
+        showAlert('오류', '업로드 실패: : ' + error.message);
       }
     }
     setUploading(false);
@@ -104,7 +105,7 @@ export default function LookbookAdmin({ session }) {
 
     const { error } = await supabase.storage.from('lookbook').move(oldPath, newPath);
     if (error) {
-      alert('카테고리 수정 실패: ' + error.message);
+      showAlert('오류', '카테고리 수정 실패: : ' + error.message);
     } else {
       setPreviewItem(null);
       fetchImages();
@@ -120,7 +121,7 @@ export default function LookbookAdmin({ session }) {
     const paths = Array.from(selectedImages);
     const { error } = await supabase.storage.from('lookbook').remove(paths);
     if (error) {
-      alert('삭제 실패: ' + error.message);
+      showAlert('오류', '삭제 실패: : ' + error.message);
     } else {
       setSelectedImages(new Set());
       setIsSelectMode(false);
@@ -412,27 +413,6 @@ export default function LookbookAdmin({ session }) {
         document.body
       )}
 
-      {/* Custom Delete Confirm Dialog */}
-      {showDeleteConfirm && createPortal(
-        <div className="modal-overlay" style={{ zIndex: 99999 }}>
-          <div className="modal-content" style={{ textAlign: 'center', padding: '30px', width: '360px' }}>
-            <h2 style={{ color: 'var(--gold-bright)', fontSize: '24px', marginBottom: '8px' }}>
-              사진 삭제
-            </h2>
-            <div className="panel-rule" style={{ marginBottom: '20px' }}>
-              <span className="pr-line"></span><span className="pr-gem">◆</span><span className="pr-line"></span>
-            </div>
-            <p style={{ fontSize: '16px', color: 'var(--txt-100)', marginBottom: '30px', lineHeight: '1.5' }}>
-              선택한 {selectedImages.size}개의 사진을<br/>정말 삭제하시겠습니까?
-            </p>
-            <div className="modal-actions">
-              <button className="cancel-btn" onClick={() => setShowDeleteConfirm(false)}>취소</button>
-              <button className="submit-btn" style={{ background: 'transparent', color: '#ff4d4f', border: '1px solid #ff4d4f' }} onClick={executeMultiDelete}>삭제하기</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }
