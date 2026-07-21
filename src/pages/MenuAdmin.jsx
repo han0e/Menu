@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import UserHeaderMenu from '../components/UserHeaderMenu';
+import LookbookAdmin from '../components/LookbookAdmin';
 import '../index.css';
 
 export default function MenuAdmin({ session }) {
@@ -9,6 +10,7 @@ export default function MenuAdmin({ session }) {
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [adminTab, setAdminTab] = useState('menu'); // 'menu' | 'lookbook'
 
   // States for Category Management
   const [selectedCatId, setSelectedCatId] = useState(null);
@@ -18,7 +20,7 @@ export default function MenuAdmin({ session }) {
 
   // States for Menu Management
   const [editMenuId, setEditMenuId] = useState(null);
-  const [menuForm, setMenuForm] = useState({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: '', is_active: true, sort_order: '', image_url: '', warning_ko: '', warning_en: '', warning_zh: '', estimated_time: '', length_extra: false });
+  const [menuForm, setMenuForm] = useState({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: '', is_active: true, sort_order: '', warning_ko: '', warning_en: '', warning_zh: '', estimated_time: '', length_extra: false });
   const [isAddingMenu, setIsAddingMenu] = useState(false);
 
   // Language Tab State
@@ -93,7 +95,7 @@ export default function MenuAdmin({ session }) {
   const startAddMenu = () => {
     if (!selectedCatId) return alert('카테고리를 먼저 선택하세요.');
     const catMenus = menuItems.filter(m => m.category_id === selectedCatId);
-    setMenuForm({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: 0, is_active: true, sort_order: catMenus.length + 1, image_url: '', warning_ko: '', warning_en: '', warning_zh: '', estimated_time: '', length_extra: false });
+    setMenuForm({ id: '', name_ko: '', name_en: '', name_zh: '', desc_ko: '', desc_en: '', desc_zh: '', price: 0, is_active: true, sort_order: catMenus.length + 1, warning_ko: '', warning_en: '', warning_zh: '', estimated_time: '', length_extra: false });
     setIsAddingMenu(true);
     setEditMenuId(null);
   };
@@ -101,10 +103,9 @@ export default function MenuAdmin({ session }) {
   const startEditMenu = (menu) => {
     setMenuForm({
       ...menu,
-      price: Number(menu.price) || 0,
-      is_active: menu.is_active ?? true,
-      sort_order: Number(menu.sort_order) || 0,
-      image_url: menu.image_url || '',
+      price: menu.price || 0,
+      is_active: menu.is_active !== false,
+      sort_order: menu.sort_order || 0,
       warning_ko: menu.warning_ko || '',
       warning_en: menu.warning_en || '',
       warning_zh: menu.warning_zh || '',
@@ -304,9 +305,36 @@ export default function MenuAdmin({ session }) {
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: '12px', padding: '0 40px', marginBottom: '16px' }}>
+        <button 
+          onClick={() => setAdminTab('menu')}
+          style={{ 
+            padding: '8px 24px', borderRadius: '24px', cursor: 'pointer', fontWeight: '500', transition: 'all 0.2s',
+            border: adminTab === 'menu' ? '1px solid var(--gold-main)' : '1px solid var(--bdr-lo)', 
+            background: adminTab === 'menu' ? 'rgba(212,175,106,0.1)' : 'transparent', 
+            color: adminTab === 'menu' ? 'var(--gold-main)' : 'var(--txt-70)'
+          }}
+        >
+          시술 메뉴 관리
+        </button>
+        <button 
+          onClick={() => setAdminTab('lookbook')}
+          style={{ 
+            padding: '8px 24px', borderRadius: '24px', cursor: 'pointer', fontWeight: '500', transition: 'all 0.2s',
+            border: adminTab === 'lookbook' ? '1px solid var(--gold-main)' : '1px solid var(--bdr-lo)', 
+            background: adminTab === 'lookbook' ? 'rgba(212,175,106,0.1)' : 'transparent', 
+            color: adminTab === 'lookbook' ? 'var(--gold-main)' : 'var(--txt-70)'
+          }}
+        >
+          룩북 갤러리 관리
+        </button>
+      </div>
+
       <div className="admin-content">
         {loading ? (
           <div className="loading-txt">데이터 불러오는 중...</div>
+        ) : adminTab === 'lookbook' ? (
+          <LookbookAdmin session={session} />
         ) : (
           <div className="admin-split">
             {/* Categories Panel */}
@@ -508,7 +536,6 @@ export default function MenuAdmin({ session }) {
                       </>
                     )}
                     <div className="form-group"><label>가격 (원)</label><input type="number" placeholder="숫자만 입력" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: Number(e.target.value)})} /></div>
-                    <div className="form-group"><label>이미지 URL (여러 장은 쉼표(,)로 구분)</label><input type="text" placeholder="https://..., https://..." value={menuForm.image_url || ''} onChange={e => setMenuForm({...menuForm, image_url: e.target.value})} /></div>
                     <div className="form-group"><label>예상 소요 시간 (분 단위)</label><input type="number" placeholder="예: 90 (1시간 30분)" value={menuForm.estimated_time || ''} onChange={e => setMenuForm({...menuForm, estimated_time: e.target.value === '' ? '' : Number(e.target.value)})} /></div>
                     <div className="form-group"><label>정렬 순서</label><input type="number" placeholder="순서" value={menuForm.sort_order} onChange={e => setMenuForm({...menuForm, sort_order: Number(e.target.value)})} /></div>
                     <div className="form-group"><label>옵션 설정</label>
@@ -589,7 +616,6 @@ export default function MenuAdmin({ session }) {
                           </>
                         )}
                         <div className="form-group"><label>가격 (원)</label><input type="number" placeholder="숫자만 입력" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: Number(e.target.value)})} /></div>
-                        <div className="form-group"><label>이미지 URL (여러 장은 쉼표(,)로 구분)</label><input type="text" placeholder="https://..., https://..." value={menuForm.image_url || ''} onChange={e => setMenuForm({...menuForm, image_url: e.target.value})} /></div>
                         <div className="form-group"><label>예상 소요 시간 (분 단위)</label><input type="number" placeholder="예: 90 (1시간 30분)" value={menuForm.estimated_time || ''} onChange={e => setMenuForm({...menuForm, estimated_time: e.target.value === '' ? '' : Number(e.target.value)})} /></div>
                         <div className="form-group"><label>정렬 순서</label><input type="number" placeholder="순서" value={menuForm.sort_order} onChange={e => setMenuForm({...menuForm, sort_order: Number(e.target.value)})} /></div>
                         <div className="form-group"><label>옵션 설정</label>

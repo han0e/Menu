@@ -145,6 +145,12 @@ export default function UserHeaderMenu({ session }) {
       if (Object.keys(updates).length > 0) {
         const { error } = await supabase.auth.updateUser(updates);
         if (error) throw error;
+
+        // DB 기반 룩북 유지를 위한 디자이너 정보 동기화 (Upsert)
+        if (newName && newName !== displayName) {
+          await supabase.from('designers').upsert([{ id: session.user.id, display_name: newName }]);
+        }
+
         showCustomAlert("알림", "성공적으로 변경되었습니다.", () => {
           setMypageOpen(false);
           setCurrentPassword("");
