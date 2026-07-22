@@ -160,7 +160,17 @@ export default function UserHeaderMenu({ session }) {
 
       if (error) throw error;
 
-      // 2. 강제 로그아웃
+      // 2. 룩북 폴더 내 이미지 영구 삭제 (스토리지 용량 확보)
+      const folderName = session?.user?.id;
+      if (folderName) {
+        const { data: lookbookFiles } = await supabase.storage.from('lookbook').list(folderName, { limit: 1000 });
+        if (lookbookFiles && lookbookFiles.length > 0) {
+          const filesToRemove = lookbookFiles.map(file => `${folderName}/${file.name}`);
+          await supabase.storage.from('lookbook').remove(filesToRemove);
+        }
+      }
+
+      // 3. 강제 로그아웃
       await supabase.auth.signOut();
 
       showCustomAlert(
