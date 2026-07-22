@@ -31,6 +31,23 @@ export default function LookbookAdmin({ session }) {
   const wasLongPress = useRef(false);
   const initialPinchDist = useRef(null);
   const lastGridSize = useRef(140);
+  const gridContainerRef = useRef(null);
+
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+
+    const handleNativeTouchMove = (e) => {
+      if (e.touches.length === 2 && viewMode === 'grid') {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener("touchmove", handleNativeTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener("touchmove", handleNativeTouchMove);
+    };
+  }, [viewMode, loading]);
 
   useEffect(() => {
     if (safeFolderName) {
@@ -312,6 +329,7 @@ export default function LookbookAdmin({ session }) {
         </div>
       ) : (
         <div 
+          ref={gridContainerRef}
           onTouchStart={handleGridTouchStart}
           onTouchMove={handleGridTouchMove}
           onTouchEnd={handleGridTouchEnd}

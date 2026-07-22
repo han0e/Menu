@@ -31,6 +31,24 @@ export default function InspirationGallery({
   const touchEndX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndY = useRef(0);
+  const gridContainerRef = useRef(null);
+
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+
+    const handleNativeTouchMove = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // 기본 화면 줌인/줌아웃 방지
+      }
+    };
+
+    // passive: false로 등록해야 e.preventDefault()가 동작함
+    el.addEventListener("touchmove", handleNativeTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener("touchmove", handleNativeTouchMove);
+    };
+  }, [isOpen, galleryData.length]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -116,7 +134,7 @@ export default function InspirationGallery({
 
       setAllImages(loadedImages);
     }
-    
+
     if (isOpen) {
       fetchAllImages();
     }
@@ -242,6 +260,7 @@ export default function InspirationGallery({
       >
         {galleryData.length > 0 ? (
           <div
+            ref={gridContainerRef}
             onTouchStart={handleGridTouchStart}
             onTouchMove={handleGridTouchMove}
             onTouchEnd={handleGridTouchEnd}
