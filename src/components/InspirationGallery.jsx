@@ -116,8 +116,11 @@ export default function InspirationGallery({
 
       setAllImages(loadedImages);
     }
-    fetchAllImages();
-  }, []);
+    
+    if (isOpen) {
+      fetchAllImages();
+    }
+  }, [isOpen, session?.user?.id]);
 
   // 필터링 적용
   useEffect(() => {
