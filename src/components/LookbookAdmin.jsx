@@ -367,6 +367,7 @@ export default function LookbookAdmin({ session }) {
               onMouseUp={cancelPress}
               onMouseLeave={cancelPress}
               onTouchStart={() => startPress(img.path)}
+              onTouchMove={cancelPress}
               onTouchEnd={cancelPress}
               onClick={(e) => handleImageClick(e, img)}
             >
