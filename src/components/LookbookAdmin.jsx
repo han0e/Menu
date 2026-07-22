@@ -179,8 +179,15 @@ export default function LookbookAdmin({ session }) {
     });
   };
 
-  const startPress = (path) => {
+  const startPress = (e, path) => {
     if (isSelectMode) return;
+    
+    if (e && e.touches && e.touches.length > 1) {
+      cancelPress();
+      return;
+    }
+
+    cancelPress();
     wasLongPress.current = false;
     pressTimer.current = setTimeout(() => {
       wasLongPress.current = true;
@@ -363,11 +370,10 @@ export default function LookbookAdmin({ session }) {
                 breakInside: 'avoid',
                 marginBottom: viewMode === 'grid' ? '12px' : '0'
               }}
-              onMouseDown={() => startPress(img.path)}
+              onMouseDown={(e) => startPress(e, img.path)}
               onMouseUp={cancelPress}
               onMouseLeave={cancelPress}
-              onTouchStart={() => startPress(img.path)}
-              onTouchMove={cancelPress}
+              onTouchStart={(e) => startPress(e, img.path)}
               onTouchEnd={cancelPress}
               onClick={(e) => handleImageClick(e, img)}
             >
