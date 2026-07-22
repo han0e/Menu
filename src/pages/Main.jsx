@@ -363,6 +363,7 @@ export default function Main({ session }) {
         isOpen={isInspirationOpen}
         onClose={() => setIsInspirationOpen(false)}
         currentLang={currentLang}
+        session={session}
       />
 
       <button

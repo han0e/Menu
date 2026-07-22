@@ -24,13 +24,13 @@ export default function LookbookAdmin({ session }) {
     etc: '기타'
   };
 
-  const designerName = session?.user?.user_metadata?.display_name;
+  const designerName = session?.user?.user_metadata?.display_name || session?.user?.email || '디자이너';
   const safeFolderName = session?.user?.id; // 고유 ID 기반 폴더명 사용
 
   const pressTimer = useRef(null);
   const wasLongPress = useRef(false);
   const initialPinchDist = useRef(null);
-  const lastGridSize = useRef(150);
+  const lastGridSize = useRef(140);
 
   useEffect(() => {
     if (safeFolderName) {
@@ -51,8 +51,8 @@ export default function LookbookAdmin({ session }) {
       return;
     }
 
-    // 숨김 파일 제외
-    const files = data.filter(f => !f.name.startsWith('.'));
+    // 숨김 파일 제외 및 null 안전 처리
+    const files = (data || []).filter(f => !f.name.startsWith('.'));
     
     const loadedImages = files.map(file => {
       const filePath = `${safeFolderName}/${file.name}`;
@@ -72,18 +72,42 @@ export default function LookbookAdmin({ session }) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    if (!safeFolderName) {
+      showAlert('오류', '로그인 세션 정보(사용자 ID)가 없습니다.');
+      return;
+    }
+
     setUploading(true);
+    let successCount = 0;
+    let failCount = 0;
+    let lastErrorMsg = '';
+
     for (const file of files) {
-      const fileExt = file.name.split('.').pop();
+      const rawExt = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+      const fileExt = rawExt.toLowerCase();
       const fileName = `${uploadCategory}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
       const filePath = `${safeFolderName}/${fileName}`;
 
-      const { error } = await supabase.storage.from('lookbook').upload(filePath, file);
+      const { error } = await supabase.storage.from('lookbook').upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || `image/${fileExt === 'png' ? 'png' : fileExt === 'webp' ? 'webp' : 'jpeg'}`
+      });
+
       if (error) {
-        showAlert('오류', '업로드 실패: : ' + error.message);
+        console.error('Upload error details:', error);
+        failCount++;
+        lastErrorMsg = error.message;
+      } else {
+        successCount++;
       }
     }
     setUploading(false);
+
+    if (failCount > 0) {
+      showAlert('업로드 결과', `${successCount}개 성공, ${failCount}개 실패.\n오류 메시지: ${lastErrorMsg}`);
+    }
+    e.target.value = '';
     fetchImages();
   };
 
@@ -114,7 +138,7 @@ export default function LookbookAdmin({ session }) {
 
   const handleMultiDeleteClick = () => {
     if (selectedImages.size === 0) return;
-    setShowDeleteConfirm(true);
+    executeMultiDelete();
   };
 
   const executeMultiDelete = async () => {
@@ -125,7 +149,6 @@ export default function LookbookAdmin({ session }) {
     } else {
       setSelectedImages(new Set());
       setIsSelectMode(false);
-      setShowDeleteConfirm(false);
       fetchImages();
     }
   };
@@ -184,15 +207,14 @@ export default function LookbookAdmin({ session }) {
 
   const handleGridTouchMove = (e) => {
     if (e.touches.length === 2 && initialPinchDist.current && viewMode === 'grid') {
-      e.preventDefault(); // Prevent scrolling while pinching
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const currentDist = Math.hypot(dx, dy);
       
       const ratio = currentDist / initialPinchDist.current;
-      let newSize = lastGridSize.current * ratio;
-      if (newSize < 80) newSize = 80;
-      if (newSize > 350) newSize = 350;
+      let newSize = Math.round(lastGridSize.current * ratio);
+      if (newSize < 100) newSize = 100;
+      if (newSize > 300) newSize = 300;
       
       setGridSize(newSize);
     }
@@ -204,16 +226,19 @@ export default function LookbookAdmin({ session }) {
     }
   };
 
-  if (!designerName) {
-    return <div className="loading-txt">디자이너 정보가 없습니다.</div>;
+  if (!safeFolderName) {
+    return <div className="loading-txt">로그인이 필요한 서비스입니다.</div>;
   }
 
   return (
     <div className="admin-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', gridColumn: '1 / -1' }}>
       <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--bdr-lo)' }}>
-        <h2 style={{ margin: 0 }}>내 룩북 관리 <span style={{ fontSize: '0.6em', color: 'var(--txt-50)', fontWeight: 'normal' }}>(폴더: {designerName})</span></h2>
+        <h2 style={{ margin: 0, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          내 룩북 관리 
+          <span style={{ fontSize: '12px', color: 'var(--txt-50)', fontWeight: 'normal' }}>({designerName})</span>
+        </h2>
         
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           {!isSelectMode && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <button 
@@ -290,12 +315,17 @@ export default function LookbookAdmin({ session }) {
           onTouchStart={handleGridTouchStart}
           onTouchMove={handleGridTouchMove}
           onTouchEnd={handleGridTouchEnd}
-          style={{
-          display: viewMode === 'grid' ? 'grid' : 'flex',
-          gridTemplateColumns: viewMode === 'grid' ? `repeat(auto-fill, minmax(${gridSize}px, 1fr))` : 'none',
-          flexDirection: viewMode === 'list' ? 'column' : 'row',
-          gap: '16px'
-        }}>
+          style={viewMode === 'grid' ? {
+            columnWidth: `${gridSize}px`,
+            columnGap: '12px',
+            padding: '4px',
+            touchAction: 'pan-y'
+          } : {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            touchAction: 'pan-y'
+          }}>
           {images.map(img => (
             <div 
               key={img.name} 
@@ -306,11 +336,14 @@ export default function LookbookAdmin({ session }) {
                 gap: viewMode === 'list' ? '16px' : '0',
                 padding: viewMode === 'list' ? '8px' : '0',
                 background: viewMode === 'list' ? 'rgba(255,255,255,0.05)' : 'transparent',
-                borderRadius: '8px', overflow: 'hidden', 
+                borderRadius: '8px', 
+                overflow: 'hidden', 
                 cursor: 'pointer', 
-                border: selectedImages.has(img.path) ? '2px solid var(--gold-main)' : '2px solid transparent',
+                boxShadow: selectedImages.has(img.path) ? '0 0 0 2px var(--gold-main)' : 'none',
                 transition: 'all 0.2s ease',
-                userSelect: 'none', WebkitUserSelect: 'none'
+                userSelect: 'none', WebkitUserSelect: 'none',
+                breakInside: 'avoid',
+                marginBottom: viewMode === 'grid' ? '12px' : '0'
               }}
               onMouseDown={() => startPress(img.path)}
               onMouseUp={cancelPress}
@@ -322,13 +355,21 @@ export default function LookbookAdmin({ session }) {
               <div style={{
                 position: 'relative',
                 width: viewMode === 'list' ? '80px' : '100%',
-                aspectRatio: '3/4',
+                aspectRatio: viewMode === 'list' ? '3/4' : 'auto',
                 background: '#222',
                 borderRadius: viewMode === 'list' ? '4px' : '8px',
                 overflow: 'hidden',
                 flexShrink: 0
               }}>
-                <img src={img.url} alt={img.name} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: selectedImages.has(img.path) ? 0.7 : 1 }} draggable="false" />
+                <img src={img.url} alt={img.name} style={{ 
+                  width: '100%', 
+                  height: viewMode === 'list' ? '100%' : 'auto', 
+                  objectFit: viewMode === 'list' ? 'cover' : 'contain', 
+                  position: viewMode === 'list' ? 'absolute' : 'static',
+                  top: 0, left: 0,
+                  display: 'block', 
+                  opacity: selectedImages.has(img.path) ? 0.7 : 1 
+                }} draggable="false" />
                 
                 {/* 카테고리 뱃지 */}
                 <div style={{
