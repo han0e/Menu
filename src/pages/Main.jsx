@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import LeftPanel from "../components/LeftPanel";
 import RightPanel from "../components/RightPanel";
 import SignatureModal from "../components/SignatureModal";
@@ -8,6 +9,8 @@ import { useModal } from "../context/ModalContext";
 import InspirationGallery from "../components/InspirationGallery";
 
 export default function Main({ session }) {
+  const navigate = useNavigate();
+  const { showAlert, showConfirm } = useModal();
   const [currentLang, setCurrentLang] = useState("ko");
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [membershipOn, setMembershipOn] = useState(false);
@@ -59,7 +62,13 @@ export default function Main({ session }) {
       }
 
       if (!catData || catData.length === 0) {
-        showAlert('알림', '카테고리 데이터가 0개입니다. DB에 데이터가 없습니다!');
+        showConfirm(
+          '환영합니다!',
+          <>아직 등록된 메뉴가 없습니다.<br/><br/><strong>[로고를 3번 터치]</strong>하거나 아래 확인버튼을 누르면 관리페이지로 이동합니다.</>,
+          () => {
+            navigate('/admin/menus');
+          }
+        );
       }
 
       // Transform to match old static structure

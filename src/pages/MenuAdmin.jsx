@@ -494,6 +494,9 @@ export default function MenuAdmin({ session }) {
           gap: "12px",
           padding: "0",
           marginBottom: "16px",
+          maxWidth: "800px",
+          width: "100%",
+          margin: "0 auto"
         }}
       >
         <button
@@ -560,7 +563,7 @@ export default function MenuAdmin({ session }) {
                       borderRadius: "4px",
                     }}
                   >
-                    ✨ 기본 메뉴판 세팅하기
+                    기본 메뉴판 세팅하기
                   </button>
                 )}
                 <button className="text-btn" onClick={startAddCat}>
