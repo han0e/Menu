@@ -366,12 +366,14 @@ export default function Main({ session }) {
         session={session}
       />
 
-      <button
-        onClick={() => setIsInspirationOpen(true)}
-        className={`fab-glass ${selectedIds.size > 0 ? 'lifted' : ''}`}
-      >
-        {currentLang === 'ko' ? '룩북' : (currentLang === 'zh' ? '画册' : 'Lookbook')}
-      </button>
+      {!isCartOpen && (
+        <button
+          onClick={() => setIsInspirationOpen(true)}
+          className={`fab-glass ${selectedIds.size > 0 ? 'lifted' : ''}`}
+        >
+          {currentLang === 'ko' ? '룩북' : (currentLang === 'zh' ? '画册' : 'Lookbook')}
+        </button>
+      )}
 
       <SignatureModal
         isOpen={isModalOpen}
