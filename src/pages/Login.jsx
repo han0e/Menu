@@ -3,6 +3,41 @@ import { supabase } from "../supabaseClient";
 import { useModal } from "../context/ModalContext";
 import "../index.css";
 
+const EyeIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const EyeClosedIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m15 18-.722-3.25" />
+    <path d="M2 8a10.645 10.645 0 0 0 20 0" />
+    <path d="m20 15-1.726-2.05" />
+    <path d="m4 15 1.726-2.05" />
+    <path d="m9 18 .722-3.25" />
+  </svg>
+);
+
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
@@ -16,6 +51,8 @@ export default function Login() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [modalType, setModalType] = useState(null); // 'terms' | 'privacy' | null
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   const getErrorMessage = (message) => {
     if (!message) return "알 수 없는 오류가 발생했습니다.";
@@ -183,26 +220,68 @@ export default function Login() {
           {!isResetMode && (
             <div className="form-group">
               <label>비밀번호</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="******"
-                required
-              />
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="******"
+                  required
+                  style={{ paddingRight: "40px", width: "100%" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    background: "none",
+                    border: "none",
+                    color: "rgba(255, 255, 255, 0.35)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "4px",
+                  }}
+                >
+                  {showPassword ? <EyeIcon /> : <EyeClosedIcon />}
+                </button>
+              </div>
             </div>
           )}
 
           {!isResetMode && isSignUp && (
             <div className="form-group">
               <label>비밀번호 확인</label>
-              <input
-                type="password"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
-                placeholder="비밀번호를 다시 입력하세요"
-                required={isSignUp}
-              />
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <input
+                  type={showPasswordConfirm ? "text" : "password"}
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  placeholder="비밀번호를 다시 입력하세요"
+                  required={isSignUp}
+                  style={{ paddingRight: "40px", width: "100%" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    background: "none",
+                    border: "none",
+                    color: "rgba(255, 255, 255, 0.35)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "4px",
+                  }}
+                >
+                  {showPasswordConfirm ? <EyeIcon /> : <EyeClosedIcon />}
+                </button>
+              </div>
             </div>
           )}
 

@@ -255,7 +255,7 @@ export default function LookbookAdmin({ session }) {
   }
 
   return (
-    <div className="admin-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', gridColumn: '1 / -1' }}>
+    <div className="admin-panel" style={{ width: '100%', maxWidth: '800px', margin: '8px auto 0', gridColumn: '1 / -1' }}>
       <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--bdr-lo)' }}>
         <h2 style={{ margin: 0, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           내 룩북 관리 

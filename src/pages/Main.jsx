@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import LeftPanel from "../components/LeftPanel";
 import RightPanel from "../components/RightPanel";
 import SignatureModal from "../components/SignatureModal";
+import PatternModal from "../components/PatternModal";
 import { T } from "../data/menuData"; // MENU_DATA is no longer imported
 import { supabase } from "../supabaseClient";
 import { useModal } from "../context/ModalContext";
@@ -24,6 +25,10 @@ export default function Main({ session }) {
   const [menuData, setMenuData] = useState([]);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Pattern Modal State
+  const [patternModalOpen, setPatternModalOpen] = useState(false);
+  const [patternTargetUrl, setPatternTargetUrl] = useState("");
 
   useEffect(() => {
     fetchDbData();
@@ -66,7 +71,8 @@ export default function Main({ session }) {
           '환영합니다!',
           <>아직 등록된 메뉴가 없습니다.<br/><br/><strong>[로고를 3번 터치]</strong>하거나 아래 확인버튼을 누르면 관리페이지로 이동합니다.</>,
           () => {
-            navigate('/admin/menus');
+            setPatternTargetUrl('/admin/menus');
+            setPatternModalOpen(true);
           }
         );
       }
@@ -483,6 +489,19 @@ export default function Main({ session }) {
           </svg>
         </div>
       </div>
+
+      <PatternModal
+        isOpen={patternModalOpen}
+        onClose={() => setPatternModalOpen(false)}
+        onSuccess={() => {
+          setPatternModalOpen(false);
+          navigate(patternTargetUrl || "/admin/menus");
+        }}
+        mode={session?.user?.user_metadata?.pattern ? "verify" : "setup"}
+        existingPattern={session?.user?.user_metadata?.pattern || ""}
+        session={session}
+      />
     </>
   );
 }
+

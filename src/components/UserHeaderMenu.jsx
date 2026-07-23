@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useModal } from "../context/ModalContext";
 import { supabase } from "../supabaseClient";
+import PatternModal from "./PatternModal";
 
 const SettingsIcon = () => (
   <svg
@@ -55,6 +56,41 @@ const LogOutIcon = () => (
   </svg>
 );
 
+const EyeIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const EyeClosedIcon = ({ size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m15 18-.722-3.25" />
+    <path d="M2 8a10.645 10.645 0 0 0 20 0" />
+    <path d="m20 15-1.726-2.05" />
+    <path d="m4 15 1.726-2.05" />
+    <path d="m9 18 .722-3.25" />
+  </svg>
+);
+
 export default function UserHeaderMenu({ session }) {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -74,12 +110,16 @@ export default function UserHeaderMenu({ session }) {
   const [newName, setNewName] = useState(
     session?.user?.user_metadata?.display_name || "",
   );
-  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showNewPasswordConfirm, setShowNewPasswordConfirm] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [patternModalOpen, setPatternModalOpen] = useState(false);
   const { showAlert: showCustomAlert, showConfirm: showCustomConfirm } = useModal();
 
   const displayName = session?.user?.user_metadata?.display_name || "디자이너";
+  const userPattern = session?.user?.user_metadata?.pattern || "";
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -89,21 +129,16 @@ export default function UserHeaderMenu({ session }) {
   const handleUpdate = async () => {
     setIsUpdating(true);
     try {
-      // 1. 비밀번호 변경 시 기존 비밀번호 검증 (Re-Authentication)
-      if (newPassword) {
-        if (!currentPassword) {
-          showCustomAlert('알림', '비밀번호를 변경하려면 기존 비밀번호를 입력해야 합니다.');
+      // 1. 신규 비밀번호 입력 시 일치 여부 및 길이가 검증됨 (기존 비밀번호 입력 제거됨)
+      if (newPassword || newPasswordConfirm) {
+        if (newPassword !== newPasswordConfirm) {
+          showCustomAlert('알림', '신규 비밀번호와 신규 비밀번호 확인이 일치하지 않습니다.');
           setIsUpdating(false);
           return;
         }
 
-        const { error: reauthError } = await supabase.auth.signInWithPassword({
-          email: session?.user?.email,
-          password: currentPassword,
-        });
-
-        if (reauthError) {
-          showCustomAlert('알림', '기존 비밀번호가 일치하지 않습니다.');
+        if (newPassword.length < 6) {
+          showCustomAlert('알림', '비밀번호는 최소 6자 이상이어야 합니다.');
           setIsUpdating(false);
           return;
         }
@@ -111,7 +146,7 @@ export default function UserHeaderMenu({ session }) {
 
       const updates = {};
       if (newName && newName !== displayName) {
-        updates.data = { display_name: newName };
+        updates.data = { ...session?.user?.user_metadata, display_name: newName };
       }
       if (newPassword) {
         updates.password = newPassword;
@@ -128,8 +163,8 @@ export default function UserHeaderMenu({ session }) {
 
         showCustomAlert("알림", "성공적으로 변경되었습니다.", () => {
           setMypageOpen(false);
-          setCurrentPassword("");
           setNewPassword("");
+          setNewPasswordConfirm("");
           setDropdownOpen(false);
         });
       } else {
@@ -258,6 +293,7 @@ export default function UserHeaderMenu({ session }) {
               />
             </div>
 
+            {/* 비밀번호 변경 섹션 */}
             <div
               style={{
                 marginTop: "20px",
@@ -271,6 +307,7 @@ export default function UserHeaderMenu({ session }) {
                   color: "var(--gold-main)",
                   marginBottom: "12px",
                   fontWeight: 600,
+                  textAlign: "left",
                 }}
               >
                 비밀번호 변경
@@ -285,16 +322,38 @@ export default function UserHeaderMenu({ session }) {
                     fontSize: "13px",
                   }}
                 >
-                  기존 비밀번호
+                  신규 비밀번호
                 </label>
-                <input
-                  type="password"
-                  className="edit-input"
-                  placeholder="비밀번호 변경 시에만 입력"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    className="edit-input"
+                    placeholder="신규 비밀번호"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{ paddingRight: "40px", width: "100%" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "10px",
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255, 255, 255, 0.35)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "4px",
+                    }}
+                  >
+                    {showNewPassword ? <EyeIcon /> : <EyeClosedIcon />}
+                  </button>
+                </div>
               </div>
+
               <div
                 className="form-group"
                 style={{ textAlign: "left", marginTop: "12px" }}
@@ -307,16 +366,92 @@ export default function UserHeaderMenu({ session }) {
                     fontSize: "13px",
                   }}
                 >
-                  새 비밀번호
+                  신규 비밀번호 확인
                 </label>
-                <input
-                  type="password"
-                  className="edit-input"
-                  placeholder="새로운 비밀번호"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <input
+                    type={showNewPasswordConfirm ? "text" : "password"}
+                    className="edit-input"
+                    placeholder="신규 비밀번호 확인"
+                    value={newPasswordConfirm}
+                    onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                    style={{ paddingRight: "40px", width: "100%" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPasswordConfirm(!showNewPasswordConfirm)}
+                    style={{
+                      position: "absolute",
+                      right: "10px",
+                      background: "none",
+                      border: "none",
+                      color: "rgba(255, 255, 255, 0.35)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "4px",
+                    }}
+                  >
+                    {showNewPasswordConfirm ? <EyeIcon /> : <EyeClosedIcon />}
+                  </button>
+                </div>
               </div>
+            </div>
+
+            {/* 패턴 설정/변경 섹션 */}
+            <div
+              style={{
+                marginTop: "20px",
+                borderTop: "1px solid var(--bdr-lo)",
+                paddingTop: "16px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "8px",
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: "14px",
+                    color: "var(--gold-main)",
+                    margin: 0,
+                    fontWeight: 600,
+                  }}
+                >
+                  패턴 보안 설정
+                </p>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    color: userPattern ? "#4caf50" : "var(--txt-50)",
+                  }}
+                >
+                  {userPattern ? "● 패턴 설정됨" : "○ 패턴 미설정"}
+                </span>
+              </div>
+              <button
+                type="button"
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  background: "var(--surface-3)",
+                  border: "1px solid var(--bdr-md)",
+                  color: "var(--gold-bright)",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginTop: "4px",
+                }}
+                onClick={() => setPatternModalOpen(true)}
+              >
+                {userPattern ? "패턴 변경하기" : "신규 패턴 설정하기"}
+              </button>
             </div>
 
             <div
@@ -358,8 +493,8 @@ export default function UserHeaderMenu({ session }) {
                   }}
                   onClick={() => {
                     setMypageOpen(false);
-                    setCurrentPassword("");
                     setNewPassword("");
+                    setNewPasswordConfirm("");
                   }}
                   disabled={isUpdating}
                 >
@@ -379,6 +514,24 @@ export default function UserHeaderMenu({ session }) {
         </div>
       )}
 
+      {/* Pattern Modal for Change/Setup inside Mypage */}
+      <PatternModal
+        isOpen={patternModalOpen}
+        onClose={() => setPatternModalOpen(false)}
+        onSuccess={() => {
+          showCustomAlert(
+            "성공",
+            "패턴이 성공적으로 설정/변경되었습니다.",
+            () => {
+              setPatternModalOpen(false);
+            }
+          );
+        }}
+        mode={userPattern ? "change" : "setup"}
+        existingPattern={userPattern}
+        session={session}
+      />
     </div>
   );
 }
+
