@@ -12,7 +12,7 @@ const CustomModal = ({ title, message, type, onConfirm, onCancel, onClose }) => 
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 10000 }}>
+    <div className="modal-overlay" style={{ zIndex: 20000 }}>
       <div
         className="modal-content"
         style={{

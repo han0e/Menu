@@ -519,12 +519,10 @@ export default function UserHeaderMenu({ session }) {
         isOpen={patternModalOpen}
         onClose={() => setPatternModalOpen(false)}
         onSuccess={() => {
+          setPatternModalOpen(false);
           showCustomAlert(
             "성공",
-            "패턴이 성공적으로 설정/변경되었습니다.",
-            () => {
-              setPatternModalOpen(false);
-            }
+            "패턴이 성공적으로 설정/변경되었습니다."
           );
         }}
         mode={userPattern ? "change" : "setup"}

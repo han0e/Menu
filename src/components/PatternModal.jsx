@@ -23,7 +23,13 @@ export default function PatternModal({
   const currentPathRef = useRef([]);
   const lastPointerPosRef = useRef(null);
 
-  // Sync refs with state for event listeners
+  // Synchronize state & props with refs so event listener closures always read fresh values
+  const stepRef = useRef(step);
+  const firstPatternRef = useRef(firstPattern);
+  const existingPatternRef = useRef(existingPattern);
+  const modeRef = useRef(mode);
+  const onSuccessRef = useRef(onSuccess);
+
   useEffect(() => {
     isDrawingRef.current = isDrawing;
   }, [isDrawing]);
@@ -33,11 +39,36 @@ export default function PatternModal({
   }, [currentPath]);
 
   useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    firstPatternRef.current = firstPattern;
+  }, [firstPattern]);
+
+  useEffect(() => {
+    existingPatternRef.current = existingPattern;
+  }, [existingPattern]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
+
+  useEffect(() => {
     if (isOpen) {
-      setStep(mode === "change" && existingPattern ? 0 : 1);
+      const initialStep = mode === "change" && existingPattern ? 0 : 1;
+      setStep(initialStep);
+      stepRef.current = initialStep;
       setFirstPattern("");
+      firstPatternRef.current = "";
       setCurrentPath([]);
+      currentPathRef.current = [];
       setIsDrawing(false);
+      isDrawingRef.current = false;
       setActivePointerPos(null);
       setErrorMessage("");
     }
@@ -226,59 +257,80 @@ export default function PatternModal({
   const processPatternEnd = async () => {
     const path = currentPathRef.current;
     const patternStr = path.join("-");
+    const currentStep = stepRef.current;
+    const currentMode = modeRef.current;
+    const currentFirstPattern = firstPatternRef.current;
+    const currentExistingPattern = existingPatternRef.current;
 
     if (path.length < 4) {
       setErrorMessage("최소 4개 이상의 점을 연결해야 합니다.");
       setCurrentPath([]);
+      currentPathRef.current = [];
       return;
     }
 
-    if (mode === "verify") {
-      if (patternStr === existingPattern) {
-        onSuccess && onSuccess(patternStr);
+    if (currentMode === "verify") {
+      if (patternStr === currentExistingPattern) {
+        onSuccessRef.current && onSuccessRef.current(patternStr);
       } else {
         setErrorMessage("패턴이 일치하지 않습니다. 다시 시도해주세요.");
         setCurrentPath([]);
+        currentPathRef.current = [];
       }
-    } else if (mode === "setup") {
-      if (step === 1) {
+    } else if (currentMode === "setup") {
+      if (currentStep === 1) {
         setFirstPattern(patternStr);
+        firstPatternRef.current = patternStr;
         setStep(2);
+        stepRef.current = 2;
         setCurrentPath([]);
+        currentPathRef.current = [];
         setErrorMessage("");
-      } else if (step === 2) {
-        if (patternStr === firstPattern) {
+      } else if (currentStep === 2) {
+        if (patternStr === currentFirstPattern) {
           await savePattern(patternStr);
         } else {
           setErrorMessage("패턴이 일치하지 않습니다. 처음부터 다시 설정해주세요.");
           setFirstPattern("");
+          firstPatternRef.current = "";
           setStep(1);
+          stepRef.current = 1;
           setCurrentPath([]);
+          currentPathRef.current = [];
         }
       }
-    } else if (mode === "change") {
-      if (step === 0) {
-        if (patternStr === existingPattern) {
+    } else if (currentMode === "change") {
+      if (currentStep === 0) {
+        if (patternStr === currentExistingPattern) {
           setStep(1);
+          stepRef.current = 1;
           setCurrentPath([]);
+          currentPathRef.current = [];
           setErrorMessage("");
         } else {
           setErrorMessage("기존 패턴이 일치하지 않습니다.");
           setCurrentPath([]);
+          currentPathRef.current = [];
         }
-      } else if (step === 1) {
+      } else if (currentStep === 1) {
         setFirstPattern(patternStr);
+        firstPatternRef.current = patternStr;
         setStep(2);
+        stepRef.current = 2;
         setCurrentPath([]);
+        currentPathRef.current = [];
         setErrorMessage("");
-      } else if (step === 2) {
-        if (patternStr === firstPattern) {
+      } else if (currentStep === 2) {
+        if (patternStr === currentFirstPattern) {
           await savePattern(patternStr);
         } else {
           setErrorMessage("새 패턴이 일치하지 않습니다. 신규 패턴 입력부터 다시 시도해주세요.");
           setFirstPattern("");
+          firstPatternRef.current = "";
           setStep(1);
+          stepRef.current = 1;
           setCurrentPath([]);
+          currentPathRef.current = [];
         }
       }
     }
@@ -291,10 +343,11 @@ export default function PatternModal({
         data: { pattern: patternStr },
       });
       if (error) throw error;
-      onSuccess && onSuccess(patternStr);
+      onSuccessRef.current && onSuccessRef.current(patternStr);
     } catch (err) {
       setErrorMessage("패턴 저장 실패: " + err.message);
       setCurrentPath([]);
+      currentPathRef.current = [];
     } finally {
       setLoading(false);
     }
@@ -398,6 +451,7 @@ export default function PatternModal({
             className="pattern-btn pattern-btn-cancel"
             onClick={() => {
               setCurrentPath([]);
+              currentPathRef.current = [];
               onClose && onClose();
             }}
             disabled={loading}
@@ -409,6 +463,7 @@ export default function PatternModal({
             className="pattern-btn pattern-btn-reset"
             onClick={() => {
               setCurrentPath([]);
+              currentPathRef.current = [];
               setErrorMessage("");
             }}
             disabled={loading || currentPath.length === 0}
