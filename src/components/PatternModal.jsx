@@ -14,23 +14,34 @@ export default function PatternModal({
   const [firstPattern, setFirstPattern] = useState("");
   const [currentPath, setCurrentPath] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [activePointerPos, setActivePointerPos] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const containerRef = useRef(null);
+  const isDrawingRef = useRef(false);
+  const currentPathRef = useRef([]);
+  const lastPointerPosRef = useRef(null);
+
+  // Sync refs with state for event listeners
+  useEffect(() => {
+    isDrawingRef.current = isDrawing;
+  }, [isDrawing]);
+
+  useEffect(() => {
+    currentPathRef.current = currentPath;
+  }, [currentPath]);
 
   useEffect(() => {
     if (isOpen) {
-      // Reset state on open
       setStep(mode === "change" && existingPattern ? 0 : 1);
       setFirstPattern("");
       setCurrentPath([]);
       setIsDrawing(false);
+      setActivePointerPos(null);
       setErrorMessage("");
     }
   }, [isOpen, mode, existingPattern]);
-
-  if (!isOpen) return null;
 
   // Calculate 9 nodes center positions inside container (3x3 grid)
   const getNodesPositions = () => {
@@ -38,7 +49,7 @@ export default function PatternModal({
     const rect = containerRef.current.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
-    
+
     const positions = [];
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 3; col++) {
@@ -50,6 +61,82 @@ export default function PatternModal({
       }
     }
     return positions;
+  };
+
+  // Get midpoint node between node1 and node2 if collinear with node in-between
+  const getMidNode = (node1Idx, node2Idx) => {
+    const r1 = Math.floor(node1Idx / 3);
+    const c1 = node1Idx % 3;
+    const r2 = Math.floor(node2Idx / 3);
+    const c2 = node2Idx % 3;
+
+    const midR = (r1 + r2) / 2;
+    const midC = (c1 + c2) / 2;
+
+    if (Number.isInteger(midR) && Number.isInteger(midC)) {
+      const midIdx = midR * 3 + midC;
+      if (midIdx !== node1Idx && midIdx !== node2Idx) {
+        return midIdx;
+      }
+    }
+    return null;
+  };
+
+  // Calculate distance from point (px, py) to line segment (x1, y1)-(x2, y2)
+  const distToSegment = (px, py, x1, y1, x2, y2) => {
+    const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+    if (l2 === 0) return { dist: Math.hypot(px - x1, py - y1), t: 0 };
+    let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const projX = x1 + t * (x2 - x1);
+    const projY = y1 + t * (y2 - y1);
+    return { dist: Math.hypot(px - projX, py - projY), t };
+  };
+
+  const getHitNodesAlongPath = (prevPos, currPos, path) => {
+    const nodes = getNodesPositions();
+    const radiusThreshold = 38; // Effective hit radius for touch target (38px)
+    const hits = [];
+
+    for (const node of nodes) {
+      if (path.includes(node.index)) continue;
+
+      // Check distance to current point
+      const pointDist = Math.hypot(node.x - currPos.x, node.y - currPos.y);
+      if (pointDist <= radiusThreshold) {
+        hits.push({ node, t: 1 });
+        continue;
+      }
+
+      // Check distance to line segment if prevPos is available
+      if (prevPos) {
+        const { dist, t } = distToSegment(node.x, node.y, prevPos.x, prevPos.y, currPos.x, currPos.y);
+        if (dist <= radiusThreshold) {
+          hits.push({ node, t });
+        }
+      }
+    }
+
+    hits.sort((a, b) => a.t - b.t);
+    return hits.map((h) => h.node.index);
+  };
+
+  const addNodesToPath = (newNodes) => {
+    setCurrentPath((prevPath) => {
+      let updatedPath = [...prevPath];
+      for (const nodeIdx of newNodes) {
+        if (updatedPath.includes(nodeIdx)) continue;
+        const lastNode = updatedPath[updatedPath.length - 1];
+        if (lastNode !== undefined) {
+          const mid = getMidNode(lastNode, nodeIdx);
+          if (mid !== null && !updatedPath.includes(mid)) {
+            updatedPath.push(mid);
+          }
+        }
+        updatedPath.push(nodeIdx);
+      }
+      return updatedPath;
+    });
   };
 
   const getPointerPos = (e) => {
@@ -72,52 +159,80 @@ export default function PatternModal({
     };
   };
 
-  const checkNodeHit = (pos) => {
-    const nodes = getNodesPositions();
-    const radiusThreshold = 32; // Hit radius
-    for (const node of nodes) {
-      const dist = Math.hypot(node.x - pos.x, node.y - pos.y);
-      if (dist <= radiusThreshold) {
-        return node.index;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !isOpen) return;
+
+    const handleStart = (e) => {
+      if (e.cancelable) e.preventDefault();
+      setErrorMessage("");
+      const pos = getPointerPos(e);
+      lastPointerPosRef.current = pos;
+      setActivePointerPos(pos);
+
+      const hitNodes = getHitNodesAlongPath(null, pos, []);
+      if (hitNodes.length > 0) {
+        setIsDrawing(true);
+        isDrawingRef.current = true;
+        addNodesToPath(hitNodes);
       }
-    }
-    return null;
-  };
+    };
 
-  const handleStart = (e) => {
-    e.preventDefault();
-    setErrorMessage("");
-    const pos = getPointerPos(e);
-    const hitNode = checkNodeHit(pos);
-    if (hitNode !== null) {
-      setIsDrawing(true);
-      setCurrentPath([hitNode]);
-    }
-  };
+    const handleMove = (e) => {
+      if (!isDrawingRef.current) return;
+      if (e.cancelable) e.preventDefault();
+      const pos = getPointerPos(e);
+      setActivePointerPos(pos);
 
-  const handleMove = (e) => {
-    if (!isDrawing) return;
-    e.preventDefault();
-    const pos = getPointerPos(e);
-    const hitNode = checkNodeHit(pos);
-    if (hitNode !== null && !currentPath.includes(hitNode)) {
-      setCurrentPath((prev) => [...prev, hitNode]);
-    }
-  };
+      const prevPos = lastPointerPosRef.current || pos;
+      lastPointerPosRef.current = pos;
 
-  const handleEnd = async (e) => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
+      const hitNodes = getHitNodesAlongPath(prevPos, pos, currentPathRef.current);
+      if (hitNodes.length > 0) {
+        addNodesToPath(hitNodes);
+      }
+    };
 
-    const patternStr = currentPath.join("-");
+    const handleEnd = (e) => {
+      if (!isDrawingRef.current) return;
+      if (e.cancelable) e.preventDefault();
+      setIsDrawing(false);
+      isDrawingRef.current = false;
+      setActivePointerPos(null);
+      lastPointerPosRef.current = null;
+      processPatternEnd();
+    };
 
-    if (currentPath.length < 4) {
+    // Attach non-passive event listeners for touch to prevent console warnings & default gestures
+    container.addEventListener("touchstart", handleStart, { passive: false });
+    window.addEventListener("touchmove", handleMove, { passive: false });
+    window.addEventListener("touchend", handleEnd, { passive: false });
+
+    container.addEventListener("mousedown", handleStart);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleEnd);
+
+    return () => {
+      container.removeEventListener("touchstart", handleStart);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleEnd);
+
+      container.removeEventListener("mousedown", handleStart);
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleEnd);
+    };
+  }, [isOpen]);
+
+  const processPatternEnd = async () => {
+    const path = currentPathRef.current;
+    const patternStr = path.join("-");
+
+    if (path.length < 4) {
       setErrorMessage("최소 4개 이상의 점을 연결해야 합니다.");
       setCurrentPath([]);
       return;
     }
 
-    // Process pattern according to mode & step
     if (mode === "verify") {
       if (patternStr === existingPattern) {
         onSuccess && onSuccess(patternStr);
@@ -185,7 +300,8 @@ export default function PatternModal({
     }
   };
 
-  // Helper render positions for SVG lines & dots
+  if (!isOpen) return null;
+
   const nodes = getNodesPositions();
 
   const getTitle = () => {
@@ -224,18 +340,9 @@ export default function PatternModal({
 
         {errorMessage && <p className="pattern-modal-error">{errorMessage}</p>}
 
-        <div
-          className="pattern-container"
-          ref={containerRef}
-          onMouseDown={handleStart}
-          onMouseMove={handleMove}
-          onMouseUp={handleEnd}
-          onTouchStart={handleStart}
-          onTouchMove={handleMove}
-          onTouchEnd={handleEnd}
-        >
+        <div className="pattern-container" ref={containerRef}>
           <svg className="pattern-svg">
-            {/* Draw active lines */}
+            {/* Draw active connected lines */}
             {currentPath.map((nodeIdx, i) => {
               if (i === 0) return null;
               const prevNode = nodes[currentPath[i - 1]];
@@ -252,6 +359,18 @@ export default function PatternModal({
                 />
               );
             })}
+
+            {/* Trailing line to active finger/pointer position */}
+            {isDrawing && currentPath.length > 0 && activePointerPos && (
+              <line
+                x1={nodes[currentPath[currentPath.length - 1]]?.x}
+                y1={nodes[currentPath[currentPath.length - 1]]?.y}
+                x2={activePointerPos.x}
+                y2={activePointerPos.y}
+                className="pattern-line"
+                style={{ opacity: 0.8 }}
+              />
+            )}
           </svg>
 
           {/* Draw 9 dots */}
@@ -301,4 +420,3 @@ export default function PatternModal({
     </div>
   );
 }
-
