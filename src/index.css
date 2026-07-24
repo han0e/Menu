@@ -1678,8 +1678,94 @@ body,
   color: var(--txt-40);
   background: rgba(255, 255, 255, 0.06);
   border-radius: 20px;
-  padding: 2px 8px;
+}
+
+/* ── Drag & Drop & Category Select Styles ── */
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--txt-40);
+  background: transparent;
+  border: none;
+  padding: 4px;
+  transition: color 0.15s ease;
+  user-select: none;
   flex-shrink: 0;
+}
+
+.drag-handle:hover {
+  color: var(--gold-main);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  color: var(--gold-main);
+}
+
+.accordion-section.dragging,
+.admin-list-item.dragging {
+  opacity: 0.4;
+  border: 1px dashed var(--gold-main) !important;
+  background: rgba(212, 175, 106, 0.05) !important;
+}
+
+.accordion-section.drag-over {
+  border: 2px dashed var(--gold-main) !important;
+  box-shadow: 0 0 12px rgba(212, 175, 106, 0.25);
+  background: rgba(212, 175, 106, 0.08) !important;
+}
+
+.admin-list-item.drag-over {
+  border-top: 2px solid var(--gold-main) !important;
+  background: rgba(212, 175, 106, 0.06) !important;
+}
+
+.cat-select-dropdown {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(20, 20, 20, 0.8);
+  border: 1px solid var(--bdr-lo);
+  border-radius: 8px;
+  color: var(--txt-main);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23D4AF6A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+
+.cat-select-dropdown:focus {
+  border-color: var(--gold-main);
+  box-shadow: 0 0 0 2px rgba(212, 175, 106, 0.2);
+}
+
+/* ── Premium Touch & Order Controls ── */
+.menu-order-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.touch-handle {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.cat-quick-select {
+  padding: 4px 8px;
+  background: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(212, 175, 106, 0.2);
+  border-radius: 6px;
+  color: var(--gold-main);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
 }
 
 .accordion-body {

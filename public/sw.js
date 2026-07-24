@@ -1,4 +1,4 @@
-const CACHE_NAME = "menu-cache-v17";
+const CACHE_NAME = "menu-cache-v18";
 const urlsToCache = [
   "./",
   "./index.html",
@@ -21,6 +21,9 @@ self.addEventListener("fetch", (event) => {
   // HTTP(S) 요청만 캐싱 시도 (chrome-extension 등 제외)
   if (!event.request.url.startsWith("http")) return;
   if (event.request.method !== "GET") return;
+
+  // Supabase API 등 외부 API 요청은 SW 캐싱 제외
+  if (event.request.url.includes("supabase.co")) return;
 
   event.respondWith(
     fetch(event.request)
@@ -49,9 +52,25 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => {
+      .catch(async () => {
         // 네트워크 연결 실패(오프라인) 시 캐시에서 파일 제공
-        return caches.match(event.request);
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        // HTML 페이지 요청(Navigation) 시 index.html 반환
+        if (
+          event.request.mode === "navigate" ||
+          (event.request.headers.get("accept") &&
+            event.request.headers.get("accept").includes("text/html"))
+        ) {
+          const indexResponse = await caches.match("./index.html");
+          if (indexResponse) return indexResponse;
+        }
+        return new Response("Network error", {
+          status: 503,
+          statusText: "Service Unavailable",
+        });
       }),
   );
 });

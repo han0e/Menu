@@ -30,6 +30,7 @@ export default function MenuAdmin({ session }) {
   const [editMenuId, setEditMenuId] = useState(null);
   const [menuForm, setMenuForm] = useState({
     id: "",
+    category_id: "",
     name_ko: "",
     name_en: "",
     name_zh: "",
@@ -46,6 +47,12 @@ export default function MenuAdmin({ session }) {
     length_extra: false,
   });
   const [isAddingMenu, setIsAddingMenu] = useState(false);
+
+  // States for Drag & Drop
+  const [draggedCatId, setDraggedCatId] = useState(null);
+  const [dragOverCatId, setDragOverCatId] = useState(null);
+  const [draggedMenuId, setDraggedMenuId] = useState(null);
+  const [dragOverMenuId, setDragOverMenuId] = useState(null);
 
   // Language Tab State
   const [langTab, setLangTab] = useState("ko"); // 'ko', 'en', 'zh'
@@ -164,11 +171,13 @@ export default function MenuAdmin({ session }) {
   };
 
   // ================= MENU LOGIC =================
-  const startAddMenu = () => {
-    const catMenus = menuItems.filter((m) => m.category_id === selectedCatId);
+  const startAddMenu = (catId) => {
+    const targetCatId = catId || selectedCatId || (categories[0] && categories[0].id) || "";
+    const catMenus = menuItems.filter((m) => m.category_id === targetCatId);
 
     setMenuForm({
       id: "",
+      category_id: targetCatId,
       name_ko: "",
       name_en: "",
       name_zh: "",
@@ -191,6 +200,7 @@ export default function MenuAdmin({ session }) {
   const startEditMenu = (menu) => {
     setMenuForm({
       ...menu,
+      category_id: menu.category_id,
       price: menu.price || 0,
       is_active: menu.is_active !== false,
       sort_order: menu.sort_order || 0,
@@ -210,20 +220,21 @@ export default function MenuAdmin({ session }) {
       return;
     }
 
+    const targetCatId = menuForm.category_id || selectedCatId || (categories[0] && categories[0].id);
     const menuId = isAddingMenu
       ? `${session.user.id}_${menuForm.id}`
       : menuForm.id;
     const payload = {
       ...menuForm,
       id: menuId,
-      category_id: selectedCatId,
+      category_id: targetCatId,
       designer_id: session.user.id,
     };
 
     if (isAddingMenu) {
       const { error } = await supabase.from("menu_items").insert([payload]);
       if (error) {
-        showAlert("오류", "추가 실패: : " + error.message);
+        showAlert("오류", "추가 실패: " + error.message);
         return;
       }
     } else {
@@ -233,13 +244,240 @@ export default function MenuAdmin({ session }) {
         .update(updatePayload)
         .eq("id", editMenuId);
       if (error) {
-        showAlert("오류", "수정 실패: : " + error.message);
+        showAlert("오류", "수정 실패: " + error.message);
         return;
       }
     }
     setEditMenuId(null);
     setIsAddingMenu(false);
     fetchData();
+  };
+
+  // ================= DRAG & DROP & ORDER LOGIC =================
+  const [touchActiveMenuId, setTouchActiveMenuId] = useState(null);
+  const [touchOverMenuId, setTouchOverMenuId] = useState(null);
+
+  const handleTouchStart = (e, menu) => {
+    setTouchActiveMenuId(menu.id);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchActiveMenuId) return;
+    const touch = e.touches[0];
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!targetEl) return;
+
+    const itemEl = targetEl.closest(".admin-list-item");
+    if (itemEl && itemEl.dataset && itemEl.dataset.menuid) {
+      const overId = itemEl.dataset.menuid;
+      if (overId !== touchActiveMenuId) {
+        setTouchOverMenuId(overId);
+      }
+    }
+  };
+
+  const handleTouchEnd = async (e, currentCatId) => {
+    if (touchActiveMenuId && touchOverMenuId) {
+      const catMenus = menuItems
+        .filter((m) => m.category_id === currentCatId)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+      const fromIdx = catMenus.findIndex((m) => m.id === touchActiveMenuId);
+      const toIdx = catMenus.findIndex((m) => m.id === touchOverMenuId);
+
+      if (fromIdx > -1 && toIdx > -1 && fromIdx !== toIdx) {
+        const [moved] = catMenus.splice(fromIdx, 1);
+        catMenus.splice(toIdx, 0, moved);
+
+        catMenus.forEach((m, idx) => {
+          m.sort_order = idx + 1;
+        });
+
+        setMenuItems((prev) =>
+          prev.map((m) => {
+            const found = catMenus.find((cm) => cm.id === m.id);
+            return found ? { ...m, sort_order: found.sort_order } : m;
+          })
+        );
+
+        for (const m of catMenus) {
+          await supabase
+            .from("menu_items")
+            .update({ sort_order: m.sort_order })
+            .eq("id", m.id);
+        }
+      }
+    }
+    setTouchActiveMenuId(null);
+    setTouchOverMenuId(null);
+  };
+
+  const moveMenuItem = async (targetMenu, direction) => {
+    const catId = targetMenu.category_id;
+    const catMenus = menuItems
+      .filter((m) => m.category_id === catId)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    const currentIdx = catMenus.findIndex((m) => m.id === targetMenu.id);
+    if (currentIdx === -1) return;
+
+    const targetIdx = direction === "up" ? currentIdx - 1 : currentIdx + 1;
+    if (targetIdx < 0 || targetIdx >= catMenus.length) return;
+
+    const updatedCatMenus = [...catMenus];
+    const temp = updatedCatMenus[currentIdx];
+    updatedCatMenus[currentIdx] = updatedCatMenus[targetIdx];
+    updatedCatMenus[targetIdx] = temp;
+
+    // sort_order 1부터 차례대로 즉각 재할당 (숫자 즉시 변경!)
+    updatedCatMenus.forEach((m, idx) => {
+      m.sort_order = idx + 1;
+    });
+
+    // 1. Local state 즉시 변경 (UI 0ms 반응)
+    setMenuItems((prev) =>
+      prev.map((m) => {
+        const found = updatedCatMenus.find((cm) => cm.id === m.id);
+        return found ? { ...m, sort_order: found.sort_order } : m;
+      })
+    );
+
+    // 2. DB 비동기 업데이트
+    for (const m of updatedCatMenus) {
+      await supabase
+        .from("menu_items")
+        .update({ sort_order: m.sort_order })
+        .eq("id", m.id);
+    }
+  };
+
+  const handleMenuDragStart = (e, menu) => {
+    e.stopPropagation();
+    setDraggedMenuId(menu.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", menu.id);
+  };
+
+  const handleMenuDragOver = (e, menuId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedMenuId && draggedMenuId !== menuId) {
+      setDragOverMenuId(menuId);
+    }
+  };
+
+  const handleMenuDropOnItem = async (e, targetMenu) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverMenuId(null);
+
+    if (!draggedMenuId || draggedMenuId === targetMenu.id) return;
+
+    const draggedMenu = menuItems.find((m) => m.id === draggedMenuId);
+    if (!draggedMenu) return;
+
+    const isSameCat = draggedMenu.category_id === targetMenu.category_id;
+    const targetCatId = targetMenu.category_id;
+
+    if (isSameCat) {
+      const catMenus = menuItems
+        .filter((m) => m.category_id === targetCatId)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const fromIdx = catMenus.findIndex((m) => m.id === draggedMenuId);
+      const toIdx = catMenus.findIndex((m) => m.id === targetMenu.id);
+
+      if (fromIdx > -1 && toIdx > -1) {
+        const [moved] = catMenus.splice(fromIdx, 1);
+        catMenus.splice(toIdx, 0, moved);
+
+        catMenus.forEach((m, idx) => {
+          m.sort_order = idx + 1;
+        });
+
+        setMenuItems((prev) =>
+          prev.map((m) => {
+            const found = catMenus.find((cm) => cm.id === m.id);
+            return found ? { ...m, sort_order: found.sort_order } : m;
+          })
+        );
+        setDraggedMenuId(null);
+
+        for (const m of catMenus) {
+          await supabase
+            .from("menu_items")
+            .update({ sort_order: m.sort_order })
+            .eq("id", m.id);
+        }
+      }
+    } else {
+      const destCatMenus = menuItems
+        .filter((m) => m.category_id === targetCatId)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const toIdx = destCatMenus.findIndex((m) => m.id === targetMenu.id);
+
+      const movedMenu = { ...draggedMenu, category_id: targetCatId };
+      destCatMenus.splice(toIdx, 0, movedMenu);
+
+      destCatMenus.forEach((m, idx) => {
+        m.sort_order = idx + 1;
+      });
+
+      setMenuItems((prev) =>
+        prev.map((m) => {
+          if (m.id === draggedMenuId) {
+            const updatedSelf = destCatMenus.find((cm) => cm.id === m.id);
+            return updatedSelf || { ...m, category_id: targetCatId };
+          }
+          const updatedOther = destCatMenus.find((cm) => cm.id === m.id);
+          return updatedOther || m;
+        })
+      );
+      setDraggedMenuId(null);
+
+      for (const m of destCatMenus) {
+        await supabase
+          .from("menu_items")
+          .update({ category_id: m.category_id, sort_order: m.sort_order })
+          .eq("id", m.id);
+      }
+    }
+  };
+
+  const handleMenuDropOnCatHeader = async (e, targetCatId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverMenuId(null);
+
+    if (!draggedMenuId) return;
+
+    const draggedMenu = menuItems.find((m) => m.id === draggedMenuId);
+    if (!draggedMenu) return;
+
+    if (draggedMenu.category_id !== targetCatId) {
+      const destCatMenus = menuItems.filter((m) => m.category_id === targetCatId);
+      const newSortOrder = destCatMenus.length + 1;
+
+      setMenuItems((prev) =>
+        prev.map((m) =>
+          m.id === draggedMenuId
+            ? { ...m, category_id: targetCatId, sort_order: newSortOrder }
+            : m
+        )
+      );
+      setDraggedMenuId(null);
+
+      await supabase
+        .from("menu_items")
+        .update({ category_id: targetCatId, sort_order: newSortOrder })
+        .eq("id", draggedMenuId);
+    } else {
+      setDraggedMenuId(null);
+    }
+  };
+
+  const handleMenuDragEnd = () => {
+    setDraggedMenuId(null);
+    setDragOverMenuId(null);
   };
 
   const deleteMenu = async (id) => {
@@ -727,11 +965,21 @@ export default function MenuAdmin({ session }) {
             {/* Category Accordion Items */}
             {categories.map((cat) => {
               const isCollapsed = !!collapsedCats[cat.id];
-              const catMenus = menuItems.filter(
-                (m) => m.category_id === cat.id,
-              );
+              const catMenus = menuItems
+                .filter((m) => m.category_id === cat.id)
+                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
               return (
-                <div key={cat.id} className="accordion-section">
+                <div
+                  key={cat.id}
+                  className="accordion-section"
+                  onDragOver={(e) => {
+                    if (draggedMenuId) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    if (draggedMenuId) handleMenuDropOnCatHeader(e, cat.id);
+                  }}
+                >
                   {/* Category Header */}
                   {editCatId === cat.id ? (
                     <div className="accordion-cat-edit">
@@ -968,6 +1216,25 @@ export default function MenuAdmin({ session }) {
                       <ul className="admin-list">
                         {isAddingMenu && selectedCatId === cat.id && (
                           <li className="admin-list-item editing">
+                            <div className="form-group">
+                              <label>소속 카테고리</label>
+                              <select
+                                className="cat-select-dropdown"
+                                value={menuForm.category_id || cat.id}
+                                onChange={(e) =>
+                                  setMenuForm({
+                                    ...menuForm,
+                                    category_id: e.target.value,
+                                  })
+                                }
+                              >
+                                {categories.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.name_ko} ({c.id.replace(`${session.user.id}_`, "")})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                             <div className="form-group">
                               <label>메뉴 ID (예: cut_01)</label>
                               <input
@@ -1282,382 +1549,419 @@ export default function MenuAdmin({ session }) {
                             </div>
                           </li>
                         )}
-                        {menuItems
-                          .filter((m) => m.category_id === cat.id)
-                          .map((menu) => (
-                            <li
-                              key={menu.id}
-                              className={`admin-list-item ${editMenuId === menu.id ? "editing" : ""}`}
-                            >
-                              {editMenuId === menu.id ? (
-                                <div className="edit-form">
-                                  <div className="form-group">
-                                    <label>메뉴 ID (수정불가)</label>
+                        {catMenus.map((menu, idx) => (
+                          <li
+                            key={menu.id}
+                            data-menuid={menu.id}
+                            className={`admin-list-item ${editMenuId === menu.id ? "editing" : ""} ${draggedMenuId === menu.id || touchActiveMenuId === menu.id ? "dragging" : ""} ${dragOverMenuId === menu.id || touchOverMenuId === menu.id ? "drag-over" : ""}`}
+                            onDragOver={(e) => handleMenuDragOver(e, menu.id)}
+                            onDrop={(e) => handleMenuDropOnItem(e, menu)}
+                          >
+                            {editMenuId === menu.id ? (
+                              <div className="edit-form">
+                                <div className="form-group">
+                                  <label>소속 카테고리</label>
+                                  <select
+                                    className="cat-select-dropdown"
+                                    value={menuForm.category_id || cat.id}
+                                    onChange={(e) =>
+                                      setMenuForm({
+                                        ...menuForm,
+                                        category_id: e.target.value,
+                                      })
+                                    }
+                                  >
+                                    {categories.map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name_ko} ({c.id.replace(`${session.user.id}_`, "")})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="form-group">
+                                  <label>메뉴 ID (수정불가)</label>
+                                  <input
+                                    type="text"
+                                    disabled
+                                    value={
+                                      menuForm.id
+                                        ? menuForm.id.replace(
+                                            `${session.user.id}_`,
+                                            "",
+                                          )
+                                        : ""
+                                    }
+                                  />
+                                </div>
+
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    marginBottom: "12px",
+                                    gap: "12px",
+                                  }}
+                                >
+                                  <div
+                                    className="lang-tabs"
+                                    style={{
+                                      marginBottom: 0,
+                                      flex: 1,
+                                      maxWidth: "240px",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      className={`lang-tab ${langTab === "ko" ? "active" : ""}`}
+                                      onClick={() => setLangTab("ko")}
+                                    >
+                                      한
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`lang-tab ${langTab === "en" ? "active" : ""}`}
+                                      onClick={() => setLangTab("en")}
+                                    >
+                                      EN
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`lang-tab ${langTab === "zh" ? "active" : ""}`}
+                                      onClick={() => setLangTab("zh")}
+                                    >
+                                      中
+                                    </button>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={handleAutoTranslate}
+                                    style={{
+                                      background: "rgba(212, 175, 106, 0.08)",
+                                      backdropFilter: "blur(8px)",
+                                      WebkitBackdropFilter: "blur(8px)",
+                                      border:
+                                        "1px solid rgba(212, 175, 106, 0.2)",
+                                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                      color: "var(--gold-main)",
+                                      padding: "0 20px",
+                                      borderRadius: "20px",
+                                      cursor: "pointer",
+                                      fontSize: "13px",
+                                      fontWeight: "500",
+                                      letterSpacing: "0.5px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                      height: "40px",
+                                      transition: "all 0.2s ease",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.background =
+                                        "rgba(212, 175, 106, 0.15)";
+                                      e.target.style.border =
+                                        "1px solid rgba(212, 175, 106, 0.3)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.background =
+                                        "rgba(212, 175, 106, 0.08)";
+                                      e.target.style.border =
+                                        "1px solid rgba(212, 175, 106, 0.2)";
+                                    }}
+                                  >
+                                    AI 자동 번역
+                                  </button>
+                                </div>
+
+                                {langTab === "ko" && (
+                                  <>
+                                    <div className="form-group">
+                                      <label>메뉴 한글명</label>
+                                      <input
+                                        type="text"
+                                        placeholder="한글명"
+                                        value={menuForm.name_ko || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            name_ko: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div className="form-group">
+                                      <label>메뉴 설명 (한글)</label>
+                                      <textarea
+                                        placeholder="설명"
+                                        value={menuForm.desc_ko || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            desc_ko: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div className="form-group">
+                                      <label>
+                                        시술 주의사항 (한글, 선택)
+                                      </label>
+                                      <textarea
+                                        placeholder="예: 탈색 시 모발 손상이 있을 수 있습니다."
+                                        value={menuForm.warning_ko || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            warning_ko: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                                {langTab === "en" && (
+                                  <>
+                                    <div className="form-group">
+                                      <label>메뉴 영문명</label>
+                                      <input
+                                        type="text"
+                                        placeholder="영문명"
+                                        value={menuForm.name_en || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            name_en: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div className="form-group">
+                                      <label>메뉴 설명 (영문)</label>
+                                      <textarea
+                                        placeholder="Description"
+                                        value={menuForm.desc_en || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            desc_en: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div className="form-group">
+                                      <label>
+                                        시술 주의사항 (영문, 선택)
+                                      </label>
+                                      <textarea
+                                        placeholder="e.g. Hair damage may occur..."
+                                        value={menuForm.warning_en || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            warning_en: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                                {langTab === "zh" && (
+                                  <>
+                                    <div className="form-group">
+                                      <label>메뉴 중문명</label>
+                                      <input
+                                        type="text"
+                                        placeholder="중문명"
+                                        value={menuForm.name_zh || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            name_zh: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div className="form-group">
+                                      <label>메뉴 설명 (중문)</label>
+                                      <textarea
+                                        placeholder="说明"
+                                        value={menuForm.desc_zh || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            desc_zh: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div className="form-group">
+                                      <label>
+                                        시술 주의사항 (중문, 선택)
+                                      </label>
+                                      <textarea
+                                        placeholder="e.g. 可能会出现头发受损..."
+                                        value={menuForm.warning_zh || ""}
+                                        onChange={(e) =>
+                                          setMenuForm({
+                                            ...menuForm,
+                                            warning_zh: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                                <div className="form-group">
+                                  <label>가격 (원)</label>
+                                  <input
+                                    type="number"
+                                    placeholder="숫자만 입력"
+                                    value={menuForm.price}
+                                    onChange={(e) =>
+                                      setMenuForm({
+                                        ...menuForm,
+                                        price: Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label>예상 소요 시간 (분 단위)</label>
+                                  <input
+                                    type="number"
+                                    placeholder="예: 90 (1시간 30분)"
+                                    value={menuForm.estimated_time || ""}
+                                    onChange={(e) =>
+                                      setMenuForm({
+                                        ...menuForm,
+                                        estimated_time:
+                                          e.target.value === ""
+                                            ? ""
+                                            : Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label>정렬 순서</label>
+                                  <input
+                                    type="number"
+                                    placeholder="순서"
+                                    value={menuForm.sort_order}
+                                    onChange={(e) =>
+                                      setMenuForm({
+                                        ...menuForm,
+                                        sort_order: Number(e.target.value),
+                                      })
+                                    }
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label>옵션 설정</label>
+                                  <label
+                                    style={{
+                                      fontSize: "14px",
+                                      marginTop: "4px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                    }}
+                                  >
                                     <input
-                                      type="text"
-                                      disabled
-                                      value={
-                                        menuForm.id
-                                          ? menuForm.id.replace(
-                                              `${session.user.id}_`,
-                                              "",
-                                            )
-                                          : ""
+                                      type="checkbox"
+                                      checked={menuForm.length_extra}
+                                      onChange={(e) =>
+                                        setMenuForm({
+                                          ...menuForm,
+                                          length_extra: e.target.checked,
+                                        })
                                       }
-                                    />
+                                    />{" "}
+                                    기장 추가 비용 별도
+                                  </label>
+                                  <label
+                                    style={{
+                                      fontSize: "14px",
+                                      marginTop: "8px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={menuForm.is_active}
+                                      onChange={(e) =>
+                                        setMenuForm({
+                                          ...menuForm,
+                                          is_active: e.target.checked,
+                                        })
+                                      }
+                                    />{" "}
+                                    메뉴판에 노출 (활성화)
+                                  </label>
+                                </div>
+                                <div className="actions">
+                                  <button onClick={saveMenu}>저장</button>
+                                  <button onClick={() => setEditMenuId(null)}>
+                                    취소
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="view-row">
+                                <div className="info">
+                                  <div className="menu-order-control">
+                                    <span
+                                      className="drag-handle touch-handle"
+                                      draggable
+                                      onDragStart={(e) => handleMenuDragStart(e, menu)}
+                                      onDragEnd={handleMenuDragEnd}
+                                      onTouchStart={(e) => handleTouchStart(e, menu)}
+                                      onTouchMove={handleTouchMove}
+                                      onTouchEnd={(e) => handleTouchEnd(e, cat.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      title="드래그하여 순서 변경"
+                                    >
+                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                                        <line x1="4" y1="6" x2="20" y2="6" />
+                                        <line x1="4" y1="12" x2="20" y2="12" />
+                                        <line x1="4" y1="18" x2="20" y2="18" />
+                                      </svg>
+                                    </span>
                                   </div>
 
                                   <div
-                                    style={{
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      marginBottom: "12px",
-                                      gap: "12px",
-                                    }}
+                                    className={`title-group ${menu.is_active ? "" : "inactive-item"}`}
                                   >
-                                    <div
-                                      className="lang-tabs"
-                                      style={{
-                                        marginBottom: 0,
-                                        flex: 1,
-                                        maxWidth: "240px",
-                                      }}
-                                    >
-                                      <button
-                                        type="button"
-                                        className={`lang-tab ${langTab === "ko" ? "active" : ""}`}
-                                        onClick={() => setLangTab("ko")}
-                                      >
-                                        한
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={`lang-tab ${langTab === "en" ? "active" : ""}`}
-                                        onClick={() => setLangTab("en")}
-                                      >
-                                        EN
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={`lang-tab ${langTab === "zh" ? "active" : ""}`}
-                                        onClick={() => setLangTab("zh")}
-                                      >
-                                        中
-                                      </button>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={handleAutoTranslate}
-                                      style={{
-                                        background: "rgba(212, 175, 106, 0.08)",
-                                        backdropFilter: "blur(8px)",
-                                        WebkitBackdropFilter: "blur(8px)",
-                                        border:
-                                          "1px solid rgba(212, 175, 106, 0.2)",
-                                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                                        color: "var(--gold-main)",
-                                        padding: "0 20px",
-                                        borderRadius: "20px",
-                                        cursor: "pointer",
-                                        fontSize: "13px",
-                                        fontWeight: "500",
-                                        letterSpacing: "0.5px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        flexShrink: 0,
-                                        height: "40px",
-                                        transition: "all 0.2s ease",
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.target.style.background =
-                                          "rgba(212, 175, 106, 0.15)";
-                                        e.target.style.border =
-                                          "1px solid rgba(212, 175, 106, 0.3)";
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.target.style.background =
-                                          "rgba(212, 175, 106, 0.08)";
-                                        e.target.style.border =
-                                          "1px solid rgba(212, 175, 106, 0.2)";
-                                      }}
-                                    >
-                                      AI 자동 번역
-                                    </button>
-                                  </div>
-
-                                  {langTab === "ko" && (
-                                    <>
-                                      <div className="form-group">
-                                        <label>메뉴 한글명</label>
-                                        <input
-                                          type="text"
-                                          placeholder="한글명"
-                                          value={menuForm.name_ko || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              name_ko: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="form-group">
-                                        <label>메뉴 설명 (한글)</label>
-                                        <textarea
-                                          placeholder="설명"
-                                          value={menuForm.desc_ko || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              desc_ko: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="form-group">
-                                        <label>
-                                          시술 주의사항 (한글, 선택)
-                                        </label>
-                                        <textarea
-                                          placeholder="예: 탈색 시 모발 손상이 있을 수 있습니다."
-                                          value={menuForm.warning_ko || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              warning_ko: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                    </>
-                                  )}
-                                  {langTab === "en" && (
-                                    <>
-                                      <div className="form-group">
-                                        <label>메뉴 영문명</label>
-                                        <input
-                                          type="text"
-                                          placeholder="영문명"
-                                          value={menuForm.name_en || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              name_en: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="form-group">
-                                        <label>메뉴 설명 (영문)</label>
-                                        <textarea
-                                          placeholder="Description"
-                                          value={menuForm.desc_en || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              desc_en: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="form-group">
-                                        <label>
-                                          시술 주의사항 (영문, 선택)
-                                        </label>
-                                        <textarea
-                                          placeholder="e.g. Hair damage may occur..."
-                                          value={menuForm.warning_en || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              warning_en: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                    </>
-                                  )}
-                                  {langTab === "zh" && (
-                                    <>
-                                      <div className="form-group">
-                                        <label>메뉴 중문명</label>
-                                        <input
-                                          type="text"
-                                          placeholder="중문명"
-                                          value={menuForm.name_zh || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              name_zh: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="form-group">
-                                        <label>메뉴 설명 (중문)</label>
-                                        <textarea
-                                          placeholder="说明"
-                                          value={menuForm.desc_zh || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              desc_zh: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="form-group">
-                                        <label>
-                                          시술 주의사항 (중문, 선택)
-                                        </label>
-                                        <textarea
-                                          placeholder="e.g. 可能会出现头发受损..."
-                                          value={menuForm.warning_zh || ""}
-                                          onChange={(e) =>
-                                            setMenuForm({
-                                              ...menuForm,
-                                              warning_zh: e.target.value,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                    </>
-                                  )}
-                                  <div className="form-group">
-                                    <label>가격 (원)</label>
-                                    <input
-                                      type="number"
-                                      placeholder="숫자만 입력"
-                                      value={menuForm.price}
-                                      onChange={(e) =>
-                                        setMenuForm({
-                                          ...menuForm,
-                                          price: Number(e.target.value),
-                                        })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>예상 소요 시간 (분 단위)</label>
-                                    <input
-                                      type="number"
-                                      placeholder="예: 90 (1시간 30분)"
-                                      value={menuForm.estimated_time || ""}
-                                      onChange={(e) =>
-                                        setMenuForm({
-                                          ...menuForm,
-                                          estimated_time:
-                                            e.target.value === ""
-                                              ? ""
-                                              : Number(e.target.value),
-                                        })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>정렬 순서</label>
-                                    <input
-                                      type="number"
-                                      placeholder="순서"
-                                      value={menuForm.sort_order}
-                                      onChange={(e) =>
-                                        setMenuForm({
-                                          ...menuForm,
-                                          sort_order: Number(e.target.value),
-                                        })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>옵션 설정</label>
-                                    <label
-                                      style={{
-                                        fontSize: "14px",
-                                        marginTop: "4px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                      }}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={menuForm.length_extra}
-                                        onChange={(e) =>
-                                          setMenuForm({
-                                            ...menuForm,
-                                            length_extra: e.target.checked,
-                                          })
-                                        }
-                                      />{" "}
-                                      기장 추가 비용 별도
-                                    </label>
-                                    <label
-                                      style={{
-                                        fontSize: "14px",
-                                        marginTop: "8px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                      }}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={menuForm.is_active}
-                                        onChange={(e) =>
-                                          setMenuForm({
-                                            ...menuForm,
-                                            is_active: e.target.checked,
-                                          })
-                                        }
-                                      />{" "}
-                                      메뉴판에 노출 (활성화)
-                                    </label>
-                                  </div>
-                                  <div className="actions">
-                                    <button onClick={saveMenu}>저장</button>
-                                    <button onClick={() => setEditMenuId(null)}>
-                                      취소
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="view-row">
-                                  <div className="info">
-                                    <span className="sort-badge">
-                                      {menu.sort_order}
+                                    <span className="title-text">
+                                      {menu.name_ko}
                                     </span>
-                                    <div
-                                      className={`title-group ${menu.is_active ? "" : "inactive-item"}`}
-                                    >
-                                      <span className="title-text">
-                                        {menu.name_ko}
-                                      </span>
-                                      <span className="price-text">
-                                        ({menu.price.toLocaleString()}원)
-                                      </span>
-                                      <span className="visibility-text">
-                                        {menu.is_active ? "표시" : "미표시"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="actions">
-                                    <button onClick={() => startEditMenu(menu)}>
-                                      수정
-                                    </button>
-                                    {!menu.id.endsWith("custom") && (
-                                      <button
-                                        onClick={() => deleteMenu(menu.id)}
-                                      >
-                                        삭제
-                                      </button>
-                                    )}
+                                    <span className="price-text">
+                                      ({menu.price.toLocaleString()}원)
+                                    </span>
+                                    <span className="visibility-text">
+                                      {menu.is_active ? "표시" : "미표시"}
+                                    </span>
                                   </div>
                                 </div>
-                              )}
-                            </li>
-                          ))}
+                                <div className="actions">
+                                  <button onClick={() => startEditMenu(menu)}>
+                                    수정
+                                  </button>
+                                  {!menu.id.endsWith("custom") && (
+                                    <button
+                                      onClick={() => deleteMenu(menu.id)}
+                                    >
+                                      삭제
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   )}
