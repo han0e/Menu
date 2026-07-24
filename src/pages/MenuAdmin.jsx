@@ -1482,20 +1482,7 @@ export default function MenuAdmin({ session }) {
                                 }
                               />
                             </div>
-                            <div className="form-group">
-                              <label>정렬 순서</label>
-                              <input
-                                type="number"
-                                placeholder="순서"
-                                value={menuForm.sort_order}
-                                onChange={(e) =>
-                                  setMenuForm({
-                                    ...menuForm,
-                                    sort_order: Number(e.target.value),
-                                  })
-                                }
-                              />
-                            </div>
+
                             <div className="form-group">
                               <label>옵션 설정</label>
                               <label
@@ -1843,20 +1830,7 @@ export default function MenuAdmin({ session }) {
                                     }
                                   />
                                 </div>
-                                <div className="form-group">
-                                  <label>정렬 순서</label>
-                                  <input
-                                    type="number"
-                                    placeholder="순서"
-                                    value={menuForm.sort_order}
-                                    onChange={(e) =>
-                                      setMenuForm({
-                                        ...menuForm,
-                                        sort_order: Number(e.target.value),
-                                      })
-                                    }
-                                  />
-                                </div>
+
                                 <div className="form-group">
                                   <label>옵션 설정</label>
                                   <label
