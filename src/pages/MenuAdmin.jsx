@@ -172,7 +172,8 @@ export default function MenuAdmin({ session }) {
 
   // ================= MENU LOGIC =================
   const startAddMenu = (catId) => {
-    const targetCatId = catId || selectedCatId || (categories[0] && categories[0].id) || "";
+    const targetCatId =
+      catId || selectedCatId || (categories[0] && categories[0].id) || "";
     const catMenus = menuItems.filter((m) => m.category_id === targetCatId);
 
     setMenuForm({
@@ -220,7 +221,10 @@ export default function MenuAdmin({ session }) {
       return;
     }
 
-    const targetCatId = menuForm.category_id || selectedCatId || (categories[0] && categories[0].id);
+    const targetCatId =
+      menuForm.category_id ||
+      selectedCatId ||
+      (categories[0] && categories[0].id);
     const menuId = isAddingMenu
       ? `${session.user.id}_${menuForm.id}`
       : menuForm.id;
@@ -228,6 +232,8 @@ export default function MenuAdmin({ session }) {
       ...menuForm,
       id: menuId,
       category_id: targetCatId,
+      price: Number(menuForm.price) || 0,
+      estimated_time: menuForm.estimated_time === "" || menuForm.estimated_time === null ? null : Number(menuForm.estimated_time),
       designer_id: session.user.id,
     };
 
@@ -254,6 +260,111 @@ export default function MenuAdmin({ session }) {
   };
 
   // ================= DRAG & DROP & ORDER LOGIC =================
+  // Category DND Handlers
+  const [dropPos, setDropPos] = useState("top"); // 'top' | 'bottom'
+  const [touchActiveCatId, setTouchActiveCatId] = useState(null);
+  const [touchOverCatId, setTouchOverCatId] = useState(null);
+
+  const handleCatTouchStart = (e, cat) => {
+    setTouchActiveCatId(cat.id);
+  };
+
+  const handleCatTouchMove = (e) => {
+    if (!touchActiveCatId) return;
+    const touch = e.touches[0];
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!targetEl) return;
+
+    const itemEl = targetEl.closest(".accordion-section");
+    if (itemEl && itemEl.dataset && itemEl.dataset.catid) {
+      const overId = itemEl.dataset.catid;
+      const rect = itemEl.getBoundingClientRect();
+      const isBottom = touch.clientY - rect.top > rect.height / 2;
+      setDropPos(isBottom ? "bottom" : "top");
+      if (overId !== touchActiveCatId) {
+        setTouchOverCatId(overId);
+      }
+    }
+  };
+
+  const handleCatTouchEnd = async () => {
+    if (touchActiveCatId && touchOverCatId && touchActiveCatId !== touchOverCatId) {
+      const updatedCats = [...categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const fromIdx = updatedCats.findIndex((c) => c.id === touchActiveCatId);
+      const toIdx = updatedCats.findIndex((c) => c.id === touchOverCatId);
+
+      if (fromIdx > -1 && toIdx > -1) {
+        const [moved] = updatedCats.splice(fromIdx, 1);
+        updatedCats.splice(toIdx, 0, moved);
+
+        updatedCats.forEach((c, idx) => {
+          c.sort_order = idx + 1;
+        });
+
+        setCategories([...updatedCats]);
+
+        for (const c of updatedCats) {
+          await supabase
+            .from("categories")
+            .update({ sort_order: c.sort_order })
+            .eq("id", c.id);
+        }
+      }
+    }
+    setTouchActiveCatId(null);
+    setTouchOverCatId(null);
+  };
+
+  const handleCatDragStart = (e, cat) => {
+    e.stopPropagation();
+    setDraggedCatId(cat.id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", cat.id);
+  };
+
+  const handleCatDragOver = (e, catId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isBottom = e.clientY - rect.top > rect.height / 2;
+    setDropPos(isBottom ? "bottom" : "top");
+    if (draggedCatId && draggedCatId !== catId) {
+      setDragOverCatId(catId);
+    }
+  };
+
+  const handleCatDrop = async (e, targetCat) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverCatId(null);
+
+    if (!draggedCatId || draggedCatId === targetCat.id) return;
+
+    const updatedCats = [...categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const fromIdx = updatedCats.findIndex((c) => c.id === draggedCatId);
+    const toIdx = updatedCats.findIndex((c) => c.id === targetCat.id);
+
+    if (fromIdx > -1 && toIdx > -1) {
+      const [moved] = updatedCats.splice(fromIdx, 1);
+      updatedCats.splice(toIdx, 0, moved);
+
+      updatedCats.forEach((c, idx) => {
+        c.sort_order = idx + 1;
+      });
+
+      setCategories([...updatedCats]);
+      setDraggedCatId(null);
+
+      for (const c of updatedCats) {
+        await supabase
+          .from("categories")
+          .update({ sort_order: c.sort_order })
+          .eq("id", c.id);
+      }
+    }
+  };
+
+  // Menu DND Handlers
   const [touchActiveMenuId, setTouchActiveMenuId] = useState(null);
   const [touchOverMenuId, setTouchOverMenuId] = useState(null);
 
@@ -270,6 +381,9 @@ export default function MenuAdmin({ session }) {
     const itemEl = targetEl.closest(".admin-list-item");
     if (itemEl && itemEl.dataset && itemEl.dataset.menuid) {
       const overId = itemEl.dataset.menuid;
+      const rect = itemEl.getBoundingClientRect();
+      const isBottom = touch.clientY - rect.top > rect.height / 2;
+      setDropPos(isBottom ? "bottom" : "top");
       if (overId !== touchActiveMenuId) {
         setTouchOverMenuId(overId);
       }
@@ -286,8 +400,12 @@ export default function MenuAdmin({ session }) {
       const toIdx = catMenus.findIndex((m) => m.id === touchOverMenuId);
 
       if (fromIdx > -1 && toIdx > -1 && fromIdx !== toIdx) {
+        let insertIdx = toIdx;
+        if (dropPos === "bottom") {
+          insertIdx = fromIdx < toIdx ? toIdx : toIdx + 1;
+        }
         const [moved] = catMenus.splice(fromIdx, 1);
-        catMenus.splice(toIdx, 0, moved);
+        catMenus.splice(insertIdx, 0, moved);
 
         catMenus.forEach((m, idx) => {
           m.sort_order = idx + 1;
@@ -297,7 +415,7 @@ export default function MenuAdmin({ session }) {
           prev.map((m) => {
             const found = catMenus.find((cm) => cm.id === m.id);
             return found ? { ...m, sort_order: found.sort_order } : m;
-          })
+          }),
         );
 
         for (const m of catMenus) {
@@ -339,7 +457,7 @@ export default function MenuAdmin({ session }) {
       prev.map((m) => {
         const found = updatedCatMenus.find((cm) => cm.id === m.id);
         return found ? { ...m, sort_order: found.sort_order } : m;
-      })
+      }),
     );
 
     // 2. DB 비동기 업데이트
@@ -361,6 +479,9 @@ export default function MenuAdmin({ session }) {
   const handleMenuDragOver = (e, menuId) => {
     e.preventDefault();
     e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isBottom = e.clientY - rect.top > rect.height / 2;
+    setDropPos(isBottom ? "bottom" : "top");
     if (draggedMenuId && draggedMenuId !== menuId) {
       setDragOverMenuId(menuId);
     }
@@ -387,8 +508,12 @@ export default function MenuAdmin({ session }) {
       const toIdx = catMenus.findIndex((m) => m.id === targetMenu.id);
 
       if (fromIdx > -1 && toIdx > -1) {
+        let insertIdx = toIdx;
+        if (dropPos === "bottom") {
+          insertIdx = fromIdx < toIdx ? toIdx : toIdx + 1;
+        }
         const [moved] = catMenus.splice(fromIdx, 1);
-        catMenus.splice(toIdx, 0, moved);
+        catMenus.splice(insertIdx, 0, moved);
 
         catMenus.forEach((m, idx) => {
           m.sort_order = idx + 1;
@@ -398,7 +523,7 @@ export default function MenuAdmin({ session }) {
           prev.map((m) => {
             const found = catMenus.find((cm) => cm.id === m.id);
             return found ? { ...m, sort_order: found.sort_order } : m;
-          })
+          }),
         );
         setDraggedMenuId(null);
 
@@ -430,7 +555,7 @@ export default function MenuAdmin({ session }) {
           }
           const updatedOther = destCatMenus.find((cm) => cm.id === m.id);
           return updatedOther || m;
-        })
+        }),
       );
       setDraggedMenuId(null);
 
@@ -454,15 +579,17 @@ export default function MenuAdmin({ session }) {
     if (!draggedMenu) return;
 
     if (draggedMenu.category_id !== targetCatId) {
-      const destCatMenus = menuItems.filter((m) => m.category_id === targetCatId);
+      const destCatMenus = menuItems.filter(
+        (m) => m.category_id === targetCatId,
+      );
       const newSortOrder = destCatMenus.length + 1;
 
       setMenuItems((prev) =>
         prev.map((m) =>
           m.id === draggedMenuId
             ? { ...m, category_id: targetCatId, sort_order: newSortOrder }
-            : m
-        )
+            : m,
+        ),
       );
       setDraggedMenuId(null);
 
@@ -941,20 +1068,7 @@ export default function MenuAdmin({ session }) {
                     />
                   </div>
                 )}
-                <div className="form-group">
-                  <label>정렬 순서 (낮을수록 먼저 표시됨)</label>
-                  <input
-                    type="number"
-                    placeholder="순서 (숫자)"
-                    value={catForm.sort_order}
-                    onChange={(e) =>
-                      setCatForm({
-                        ...catForm,
-                        sort_order: Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
+
                 <div className="actions">
                   <button onClick={saveCategory}>저장</button>
                   <button onClick={() => setIsAddingCat(false)}>취소</button>
@@ -963,21 +1077,55 @@ export default function MenuAdmin({ session }) {
             )}
 
             {/* Category Accordion Items */}
-            {categories.map((cat) => {
+            {categories.map((cat, catIdx) => {
               const isCollapsed = !!collapsedCats[cat.id];
               const catMenus = menuItems
                 .filter((m) => m.category_id === cat.id)
                 .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
+              const activeOverCatId = dragOverCatId || touchOverCatId;
+              const catOverIdx = categories.findIndex((c) => c.id === activeOverCatId);
+              const prevCatId = catOverIdx > 0 ? categories[catOverIdx - 1].id : null;
+              const isLastCatOver = catOverIdx === categories.length - 1;
+
+              const activeOverMenuId = dragOverMenuId || touchOverMenuId;
+              const menuOverIdx = catMenus.findIndex((m) => m.id === activeOverMenuId);
+              const prevMenuId = menuOverIdx > 0 ? catMenus[menuOverIdx - 1].id : null;
+              const isLastMenuOver = menuOverIdx === catMenus.length - 1;
+
+              const isCatOver = activeOverCatId === cat.id;
+              const isCatPrevOver = cat.id === prevCatId;
+
+              let showCatTopHighlight = false;
+              let showCatBottomHighlight = false;
+
+              if (activeOverCatId) {
+                if (dropPos === "top") {
+                  showCatTopHighlight = isCatOver;
+                  showCatBottomHighlight = isCatPrevOver;
+                } else {
+                  showCatBottomHighlight = isCatOver;
+                }
+              }
+
               return (
                 <div
                   key={cat.id}
-                  className="accordion-section"
+                  data-catid={cat.id}
+                  className={`accordion-section ${draggedCatId === cat.id || touchActiveCatId === cat.id ? "dragging" : ""} ${showCatTopHighlight ? "drag-over" : ""} ${showCatBottomHighlight ? "drag-over-bottom" : ""}`}
                   onDragOver={(e) => {
-                    if (draggedMenuId) e.preventDefault();
+                    if (draggedCatId) {
+                      handleCatDragOver(e, cat.id);
+                    } else if (draggedMenuId) {
+                      e.preventDefault();
+                    }
                   }}
                   onDrop={(e) => {
-                    if (draggedMenuId) handleMenuDropOnCatHeader(e, cat.id);
+                    if (draggedCatId) {
+                      handleCatDrop(e, cat);
+                    } else if (draggedMenuId) {
+                      handleMenuDropOnCatHeader(e, cat.id);
+                    }
                   }}
                 >
                   {/* Category Header */}
@@ -1124,21 +1272,8 @@ export default function MenuAdmin({ session }) {
                           />
                         </div>
                       )}
-                      <div className="form-group">
-                        <label>정렬 순서</label>
-                        <input
-                          type="number"
-                          placeholder="순서"
-                          value={catForm.sort_order}
-                          onChange={(e) =>
-                            setCatForm({
-                              ...catForm,
-                              sort_order: Number(e.target.value),
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="actions">
+
+                      <div className="actions" style={{ marginTop: "22px" }}>
                         <button onClick={saveCategory}>저장</button>
                         <button onClick={() => setEditCatId(null)}>취소</button>
                       </div>
@@ -1151,18 +1286,41 @@ export default function MenuAdmin({ session }) {
                       }}
                     >
                       <div className="accordion-cat-header-left">
+                        {/* 카테고리 햄버거 드래그 핸들 */}
+                        <span
+                          className="drag-handle touch-handle"
+                          draggable
+                          onDragStart={(e) => handleCatDragStart(e, cat)}
+                          onDragEnd={() => setDraggedCatId(null)}
+                          onTouchStart={(e) => handleCatTouchStart(e, cat)}
+                          onTouchMove={handleCatTouchMove}
+                          onTouchEnd={handleCatTouchEnd}
+                          onClick={(e) => e.stopPropagation()}
+                          title="드래그하여 카테고리 순서 변경"
+                          style={{ marginRight: "6px" }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                            <line x1="4" y1="6" x2="20" y2="6" />
+                            <line x1="4" y1="12" x2="20" y2="12" />
+                            <line x1="4" y1="18" x2="20" y2="18" />
+                          </svg>
+                        </span>
                         <span
                           className="accordion-chevron"
                           style={{
-                            transform: isCollapsed
-                              ? "rotate(-90deg)"
-                              : "rotate(0deg)",
-                            transition: "transform 0.2s ease",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transform: isCollapsed ? "rotate(0deg)" : "rotate(180deg)",
+                            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+                            marginRight: "6px",
+                            color: "var(--gold-main)",
                           }}
                         >
-                          ▾
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
                         </span>
-                        <span className="sort-badge">{cat.sort_order}</span>
                         <span className="accordion-cat-name">
                           {cat.name_ko}
                           <span className="accordion-cat-id">
@@ -1230,7 +1388,8 @@ export default function MenuAdmin({ session }) {
                               >
                                 {categories.map((c) => (
                                   <option key={c.id} value={c.id}>
-                                    {c.name_ko} ({c.id.replace(`${session.user.id}_`, "")})
+                                    {c.name_ko} (
+                                    {c.id.replace(`${session.user.id}_`, "")})
                                   </option>
                                 ))}
                               </select>
@@ -1456,11 +1615,12 @@ export default function MenuAdmin({ session }) {
                               <input
                                 type="number"
                                 placeholder="숫자만 입력"
-                                value={menuForm.price}
+                                value={menuForm.price === "" ? "" : (menuForm.price === 0 ? "" : menuForm.price)}
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) =>
                                   setMenuForm({
                                     ...menuForm,
-                                    price: Number(e.target.value),
+                                    price: e.target.value === "" ? "" : Number(e.target.value),
                                   })
                                 }
                               />
@@ -1471,6 +1631,7 @@ export default function MenuAdmin({ session }) {
                                 type="number"
                                 placeholder="예: 90 (1시간 30분)"
                                 value={menuForm.estimated_time || ""}
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) =>
                                   setMenuForm({
                                     ...menuForm,
@@ -1482,7 +1643,6 @@ export default function MenuAdmin({ session }) {
                                 }
                               />
                             </div>
-
                             <div className="form-group">
                               <label>옵션 설정</label>
                               <label
@@ -1536,11 +1696,27 @@ export default function MenuAdmin({ session }) {
                             </div>
                           </li>
                         )}
-                        {catMenus.map((menu, idx) => (
-                          <li
-                            key={menu.id}
-                            data-menuid={menu.id}
-                            className={`admin-list-item ${editMenuId === menu.id ? "editing" : ""} ${draggedMenuId === menu.id || touchActiveMenuId === menu.id ? "dragging" : ""} ${dragOverMenuId === menu.id || touchOverMenuId === menu.id ? "drag-over" : ""}`}
+                        {catMenus.map((menu, idx) => {
+                          const isMenuOver = activeOverMenuId === menu.id;
+                          const isMenuPrevOver = menu.id === prevMenuId;
+
+                          let showMenuTopHighlight = false;
+                          let showMenuBottomHighlight = false;
+
+                          if (activeOverMenuId) {
+                            if (dropPos === "top") {
+                              showMenuTopHighlight = isMenuOver;
+                              showMenuBottomHighlight = isMenuPrevOver;
+                            } else {
+                              showMenuBottomHighlight = isMenuOver;
+                            }
+                          }
+
+                          return (
+                            <li
+                              key={menu.id}
+                              data-menuid={menu.id}
+                              className={`admin-list-item ${editMenuId === menu.id ? "editing" : ""} ${draggedMenuId === menu.id || touchActiveMenuId === menu.id ? "dragging" : ""} ${showMenuTopHighlight ? "drag-over" : ""} ${showMenuBottomHighlight ? "drag-over-bottom" : ""}`}
                             onDragOver={(e) => handleMenuDragOver(e, menu.id)}
                             onDrop={(e) => handleMenuDropOnItem(e, menu)}
                           >
@@ -1560,7 +1736,12 @@ export default function MenuAdmin({ session }) {
                                   >
                                     {categories.map((c) => (
                                       <option key={c.id} value={c.id}>
-                                        {c.name_ko} ({c.id.replace(`${session.user.id}_`, "")})
+                                        {c.name_ko} (
+                                        {c.id.replace(
+                                          `${session.user.id}_`,
+                                          "",
+                                        )}
+                                        )
                                       </option>
                                     ))}
                                   </select>
@@ -1691,9 +1872,7 @@ export default function MenuAdmin({ session }) {
                                       />
                                     </div>
                                     <div className="form-group">
-                                      <label>
-                                        시술 주의사항 (한글, 선택)
-                                      </label>
+                                      <label>시술 주의사항 (한글, 선택)</label>
                                       <textarea
                                         placeholder="예: 탈색 시 모발 손상이 있을 수 있습니다."
                                         value={menuForm.warning_ko || ""}
@@ -1737,9 +1916,7 @@ export default function MenuAdmin({ session }) {
                                       />
                                     </div>
                                     <div className="form-group">
-                                      <label>
-                                        시술 주의사항 (영문, 선택)
-                                      </label>
+                                      <label>시술 주의사항 (영문, 선택)</label>
                                       <textarea
                                         placeholder="e.g. Hair damage may occur..."
                                         value={menuForm.warning_en || ""}
@@ -1783,9 +1960,7 @@ export default function MenuAdmin({ session }) {
                                       />
                                     </div>
                                     <div className="form-group">
-                                      <label>
-                                        시술 주의사항 (중문, 선택)
-                                      </label>
+                                      <label>시술 주의사항 (중문, 선택)</label>
                                       <textarea
                                         placeholder="e.g. 可能会出现头发受损..."
                                         value={menuForm.warning_zh || ""}
@@ -1804,11 +1979,12 @@ export default function MenuAdmin({ session }) {
                                   <input
                                     type="number"
                                     placeholder="숫자만 입력"
-                                    value={menuForm.price}
+                                    value={menuForm.price === "" ? "" : (menuForm.price === 0 ? "" : menuForm.price)}
+                                    onFocus={(e) => e.target.select()}
                                     onChange={(e) =>
                                       setMenuForm({
                                         ...menuForm,
-                                        price: Number(e.target.value),
+                                        price: e.target.value === "" ? "" : Number(e.target.value),
                                       })
                                     }
                                   />
@@ -1819,6 +1995,7 @@ export default function MenuAdmin({ session }) {
                                     type="number"
                                     placeholder="예: 90 (1시간 30분)"
                                     value={menuForm.estimated_time || ""}
+                                    onFocus={(e) => e.target.select()}
                                     onChange={(e) =>
                                       setMenuForm({
                                         ...menuForm,
@@ -1830,7 +2007,6 @@ export default function MenuAdmin({ session }) {
                                     }
                                   />
                                 </div>
-
                                 <div className="form-group">
                                   <label>옵션 설정</label>
                                   <label
@@ -1890,11 +2066,17 @@ export default function MenuAdmin({ session }) {
                                     <span
                                       className="drag-handle touch-handle"
                                       draggable
-                                      onDragStart={(e) => handleMenuDragStart(e, menu)}
+                                      onDragStart={(e) =>
+                                        handleMenuDragStart(e, menu)
+                                      }
                                       onDragEnd={handleMenuDragEnd}
-                                      onTouchStart={(e) => handleTouchStart(e, menu)}
+                                      onTouchStart={(e) =>
+                                        handleTouchStart(e, menu)
+                                      }
                                       onTouchMove={handleTouchMove}
-                                      onTouchEnd={(e) => handleTouchEnd(e, cat.id)}
+                                      onTouchEnd={(e) =>
+                                        handleTouchEnd(e, cat.id)
+                                      }
                                       onClick={(e) => e.stopPropagation()}
                                       title="드래그하여 순서 변경"
                                     >
@@ -1925,9 +2107,7 @@ export default function MenuAdmin({ session }) {
                                     수정
                                   </button>
                                   {!menu.id.endsWith("custom") && (
-                                    <button
-                                      onClick={() => deleteMenu(menu.id)}
-                                    >
+                                    <button onClick={() => deleteMenu(menu.id)}>
                                       삭제
                                     </button>
                                   )}
@@ -1935,7 +2115,8 @@ export default function MenuAdmin({ session }) {
                               </div>
                             )}
                           </li>
-                        ))}
+                        );
+                      })}
                       </ul>
                     </div>
                   )}
