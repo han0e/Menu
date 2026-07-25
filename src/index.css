@@ -1748,6 +1748,57 @@ body,
   gap: 10px;
 }
 
+/* ── Toast Notification for Admin DND (Borderless Glassmorphism Theme) ── */
+.toast-notification {
+  position: fixed;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: rgba(30, 30, 30, 0.65);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: none;
+  color: var(--gold-bright);
+  padding: 12px 26px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+  z-index: 9999;
+  pointer-events: none;
+  animation: toastSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.toast-notification.exiting {
+  animation: toastSlideUp 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes toastSlideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes toastSlideUp {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
 .cat-select-dropdown {
   width: 100%;
   padding: 10px 14px;
@@ -2320,7 +2371,7 @@ input[type="number"] {
     width: calc(100% - 32px);
     max-width: 480px;
     background: var(--gold-grad);
-    color: #0c0a06;
+    color: #222222;
     padding: 14px 20px;
     border-radius: 30px;
     box-shadow:
@@ -2355,7 +2406,7 @@ input[type="number"] {
   }
 
   .floating-count-badge {
-    background: #111;
+    background: #222222;
     color: var(--gold-bright);
     padding: 2px 8px;
     border-radius: 12px;
@@ -2369,7 +2420,7 @@ input[type="number"] {
     font-size: 16px;
     font-weight: 700;
     margin-left: 4px;
-    color: #111;
+    color: #222222;
   }
 
   .floating-bar-right {
@@ -2738,6 +2789,6 @@ input[type="number"] {
 
 .pattern-btn-reset:not(:disabled):hover {
   background: var(--gold-main);
-  color: #000000;
+  color: #222222;
   box-shadow: 0 4px 12px rgba(212, 175, 106, 0.4);
 }

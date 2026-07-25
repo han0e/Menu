@@ -1,4 +1,5 @@
 import React from "react";
+import { formatApproxCurrency } from "../utils/exchangeRate";
 
 export default function MenuCard({
   item,
@@ -7,6 +8,7 @@ export default function MenuCard({
   isSelected,
   toggleItem,
   T,
+  exchangeRates,
 }) {
   const getLang = (obj) =>
     typeof obj === "string" ? obj : obj[currentLang] || obj.ko;
@@ -14,6 +16,7 @@ export default function MenuCard({
   const fmt = (n) => n.toLocaleString("ko-KR");
 
   const name = getLang(item.name);
+  const approxCurrency = currentLang !== "ko" ? formatApproxCurrency(item.price, currentLang, exchangeRates) : null;
 
   let timeStr = item.time ? getLang(item.time) : null;
   if (!timeStr && item.estimated_time) {
@@ -63,6 +66,11 @@ export default function MenuCard({
         </div>
         <div className="card-price-col">
           <div className="card-price">{fmt(item.price)}</div>
+          {approxCurrency && (
+            <div className="card-price-approx" style={{ fontSize: "11px", color: "var(--gold-main)", opacity: 0.85, marginTop: "2px", fontWeight: "400" }}>
+              ({approxCurrency})
+            </div>
+          )}
         </div>
       </div>
       <div className="card-meta">

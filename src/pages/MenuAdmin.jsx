@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useModal } from "../context/ModalContext";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +25,28 @@ export default function MenuAdmin({ session }) {
     sort_order: "",
   });
   const [isAddingCat, setIsAddingCat] = useState(false);
+
+  // Toast Notification State (Entrance & Exit Animations)
+  const [toastMessage, setToastMessage] = useState("");
+  const [isToastExiting, setIsToastExiting] = useState(false);
+  const toastTimeoutRef = useRef(null);
+  const exitTimeoutRef = useRef(null);
+
+  const showToast = (msg) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
+
+    setIsToastExiting(false);
+    setToastMessage(msg);
+
+    toastTimeoutRef.current = setTimeout(() => {
+      setIsToastExiting(true);
+      exitTimeoutRef.current = setTimeout(() => {
+        setToastMessage("");
+        setIsToastExiting(false);
+      }, 350);
+    }, 1000);
+  };
 
   // States for Menu Management
   const [editMenuId, setEditMenuId] = useState(null);
@@ -309,6 +331,7 @@ export default function MenuAdmin({ session }) {
             .update({ sort_order: c.sort_order })
             .eq("id", c.id);
         }
+        showToast("카테고리 순서가 저장되었습니다");
       }
     }
     setTouchActiveCatId(null);
@@ -361,6 +384,7 @@ export default function MenuAdmin({ session }) {
           .update({ sort_order: c.sort_order })
           .eq("id", c.id);
       }
+      showToast("카테고리 순서가 저장되었습니다");
     }
   };
 
@@ -424,6 +448,7 @@ export default function MenuAdmin({ session }) {
             .update({ sort_order: m.sort_order })
             .eq("id", m.id);
         }
+        showToast("메뉴 순서가 저장되었습니다");
       }
     }
     setTouchActiveMenuId(null);
@@ -533,6 +558,7 @@ export default function MenuAdmin({ session }) {
             .update({ sort_order: m.sort_order })
             .eq("id", m.id);
         }
+        showToast("메뉴 순서가 저장되었습니다");
       }
     } else {
       const destCatMenus = menuItems
@@ -2123,6 +2149,11 @@ export default function MenuAdmin({ session }) {
                 </div>
               );
             })}
+          </div>
+        )}
+        {toastMessage && (
+          <div className={`toast-notification ${isToastExiting ? "exiting" : ""}`}>
+            {toastMessage}
           </div>
         )}
       </div>

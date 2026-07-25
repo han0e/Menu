@@ -12,6 +12,7 @@ export default function LeftPanel({
   T,
   MENU_DATA,
   CATEGORIES,
+  exchangeRates,
 }) {
   const items = MENU_DATA.filter((i) => i.category === currentCat);
   const navRef = useRef(null);
@@ -121,6 +122,7 @@ export default function LeftPanel({
             toggleItem={toggleItem}
             onOpenLookbook={onOpenLookbook}
             T={T}
+            exchangeRates={exchangeRates}
           />
         ))}
       </div>

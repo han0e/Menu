@@ -1,11 +1,13 @@
 import React from 'react';
+import { formatApproxCurrency } from "../utils/exchangeRate";
 
 export default function RightPanel({ 
   currentLang, selectedIds, toggleItem, 
   membershipOn, setMembershipOn, 
   customDiscount, setCustomDiscount, 
   resetAll, T, MENU_DATA, onProceed,
-  isCartOpen, setIsCartOpen
+  isCartOpen, setIsCartOpen,
+  exchangeRates
 }) {
   const t = (key) => T[currentLang][key];
   const fmt = n => n.toLocaleString('ko-KR');
@@ -44,6 +46,8 @@ export default function RightPanel({
     else if (currentLang === 'zh') totalTimeStr = `约 ${totalTime >= 60 ? `${Math.floor(totalTime/60)}小时 ${totalTime%60>0 ? `${totalTime%60}分钟`:''}` : `${totalTime}分钟`}`;
     else totalTimeStr = `About ${totalTime >= 60 ? `${Math.floor(totalTime/60)}h ${totalTime%60>0 ? `${totalTime%60}m`:''}` : `${totalTime}m`}`;
   }
+
+  const approxFinalTotal = currentLang !== "ko" && finalTotal > 0 ? formatApproxCurrency(finalTotal, currentLang, exchangeRates) : null;
 
   return (
     <div className={`right-panel ${isCartOpen ? 'open' : ''}`}>
@@ -178,9 +182,16 @@ export default function RightPanel({
               <span className="total-val">{totalTimeStr}</span>
             </div>
           )}
-          <div className="grand-row">
-            <span className="grand-lbl">{t('totalLbl')}</span>
-            <span className="grand-val">{list.length > 0 ? fmt(finalTotal) : '—'}</span>
+          <div className="grand-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', width: '100%' }}>
+              <span className="grand-lbl">{t('totalLbl')}</span>
+              <span className="grand-val">{list.length > 0 ? fmt(finalTotal) : '—'}</span>
+            </div>
+            {approxFinalTotal && (
+              <div style={{ textAlign: 'right', fontSize: '12px', color: 'var(--gold-bright)', opacity: 0.9, marginTop: '2px', fontWeight: '400' }}>
+                ({approxFinalTotal})
+              </div>
+            )}
           </div>
         </div>
 

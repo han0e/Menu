@@ -9,6 +9,8 @@ import { supabase } from "../supabaseClient";
 import { useModal } from "../context/ModalContext";
 import InspirationGallery from "../components/InspirationGallery";
 
+import { getExchangeRates, formatApproxCurrency } from "../utils/exchangeRate";
+
 export default function Main({ session }) {
   const navigate = useNavigate();
   const { showAlert, showConfirm } = useModal();
@@ -23,6 +25,7 @@ export default function Main({ session }) {
   // Data states
   const [categories, setCategories] = useState([]);
   const [menuData, setMenuData] = useState([]);
+  const [exchangeRates, setExchangeRates] = useState(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +35,7 @@ export default function Main({ session }) {
 
   useEffect(() => {
     fetchDbData();
+    getExchangeRates().then((rates) => setExchangeRates(rates));
   }, []);
 
   const fetchDbData = async () => {
@@ -356,6 +360,7 @@ export default function Main({ session }) {
         T={T}
         MENU_DATA={menuData}
         CATEGORIES={categories}
+        exchangeRates={exchangeRates}
       />
 
       <RightPanel
@@ -372,6 +377,7 @@ export default function Main({ session }) {
         onProceed={() => setIsModalOpen(true)}
         isCartOpen={isCartOpen}
         setIsCartOpen={setIsCartOpen}
+        exchangeRates={exchangeRates}
       />
 
       <InspirationGallery 
@@ -397,6 +403,7 @@ export default function Main({ session }) {
         onSubmit={handleSignatureSubmit}
         currentLang={currentLang}
         selectedItems={menuData.filter((i) => selectedIds.has(i.id))}
+        exchangeRates={exchangeRates}
       />
 
       {isSuccessDialogOpen && (
@@ -465,6 +472,11 @@ export default function Main({ session }) {
           <span className="floating-count-badge">{selectedIds.size}</span>
           <span className="floating-total-price">
             {calculatedTotal.toLocaleString("ko-KR")}원
+            {currentLang !== "ko" && (
+              <span style={{ fontSize: "12px", color: "#222222", marginLeft: "6px", fontWeight: "600", letterSpacing: "-0.2px" }}>
+                ({formatApproxCurrency(calculatedTotal, currentLang, exchangeRates)})
+              </span>
+            )}
           </span>
         </div>
         <div className="floating-bar-right">
