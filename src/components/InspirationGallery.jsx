@@ -7,18 +7,19 @@ export default function InspirationGallery({
   onClose,
   currentLang,
   session,
+  categories = [],
 }) {
   const [galleryData, setGalleryData] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [columns, setColumns] = useState(3);
 
-  const CATEGORIES = [
-    { id: "전체보기", displayName: "전체보기" },
-    { id: "cut", displayName: "컷트" },
-    { id: "perm", displayName: "펌" },
-    { id: "color", displayName: "컬러" },
-    { id: "styling", displayName: "스타일링" },
-    { id: "etc", displayName: "기타" },
+  const DEFAULT_CATEGORIES = [
+    { id: "전체보기", ko: "전체보기", en: "ALL", zh: "全部" },
+    { id: "cut", ko: "컷트", en: "Cut", zh: "剪发" },
+    { id: "perm", ko: "펌", en: "Perm", zh: "烫发" },
+    { id: "color", ko: "컬러", en: "Color", zh: "染发" },
+    { id: "styling", ko: "스타일링", en: "Styling", zh: "造型" },
+    { id: "etc", ko: "기타", en: "ETC", zh: "기타" },
   ];
 
   const [allImages, setAllImages] = useState([]);
@@ -119,7 +120,7 @@ export default function InspirationGallery({
 
         // Extract category
         const prefix = file.name.split("_")[0];
-        const category = CATEGORIES.some((c) => c.id === prefix)
+        const category = DEFAULT_CATEGORIES.some((c) => c.id === prefix)
           ? prefix
           : "etc";
 
@@ -200,6 +201,16 @@ export default function InspirationGallery({
     }
   };
 
+  const getCatName = (cat) => {
+    if (currentLang === "en") return cat.en || cat.name_en || cat.ko || cat.name_ko || cat.id;
+    if (currentLang === "zh") return cat.zh || cat.name_zh || cat.ko || cat.name_ko || cat.id;
+    return cat.ko || cat.name_ko || cat.displayName || cat.id;
+  };
+
+  const catList = categories && categories.length > 0
+    ? [{ id: "전체보기", ko: "전체보기", en: "ALL", zh: "全部" }, ...categories]
+    : DEFAULT_CATEGORIES;
+
   const renderCategoryTabs = () => {
     return (
       <div
@@ -214,7 +225,7 @@ export default function InspirationGallery({
           WebkitOverflowScrolling: "touch",
         }}
       >
-        {CATEGORIES.map((cat) => (
+        {catList.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
@@ -241,7 +252,7 @@ export default function InspirationGallery({
               flexShrink: 0,
             }}
           >
-            {cat.displayName}
+            {getCatName(cat)}
           </button>
         ))}
       </div>
@@ -309,7 +320,11 @@ export default function InspirationGallery({
               color: "var(--txt-50)",
             }}
           >
-            이미지가 없습니다.
+            {currentLang === "ko"
+              ? "이미지가 없습니다."
+              : currentLang === "zh"
+                ? "暂无图片。"
+                : "No images available."}
           </div>
         )}
       </div>

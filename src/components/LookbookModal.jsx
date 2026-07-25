@@ -135,7 +135,11 @@ export default function LookbookModal({ isOpen, onClose, item, currentLang, T })
             </>
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-50)' }}>
-              이미지가 없습니다.
+              {currentLang === "ko"
+                ? "이미지가 없습니다."
+                : currentLang === "zh"
+                  ? "暂无图片。"
+                  : "No images available."}
             </div>
           )}
         </div>

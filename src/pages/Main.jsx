@@ -379,6 +379,7 @@ export default function Main({ session }) {
         onClose={() => setIsInspirationOpen(false)}
         currentLang={currentLang}
         session={session}
+        categories={categories}
       />
 
       {!isCartOpen && (
