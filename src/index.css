@@ -1754,19 +1754,20 @@ body,
   top: 30px;
   left: 50%;
   transform: translateX(-50%) translateY(0);
-  background: rgba(30, 30, 30, 0.65);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: none;
+  background: rgba(18, 18, 18, 0.92);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--gold-bright);
   padding: 12px 26px;
   border-radius: 30px;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.45),
-    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+    0 14px 40px rgba(0, 0, 0, 0.65),
+    inset 0 1px 1px rgba(255, 255, 255, 0.15);
   z-index: 9999;
   pointer-events: none;
   animation: toastSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);

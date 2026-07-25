@@ -1,4 +1,4 @@
-const CACHE_NAME = "menu-cache-v22";
+const CACHE_NAME = "menu-cache-v23";
 const urlsToCache = [
   "./",
   "./index.html",
