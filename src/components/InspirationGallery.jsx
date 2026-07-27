@@ -13,7 +13,7 @@ export default function InspirationGallery({
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [columns, setColumns] = useState(3);
 
-  const DEFAULT_CATEGORIES = [
+  const LOOKBOOK_CATEGORIES = [
     { id: "전체보기", ko: "전체보기", en: "ALL", zh: "全部" },
     { id: "cut", ko: "컷트", en: "Cut", zh: "剪发" },
     { id: "perm", ko: "펌", en: "Perm", zh: "烫发" },
@@ -118,9 +118,9 @@ export default function InspirationGallery({
           .from(bucketName)
           .getPublicUrl(filePath);
 
-        // Extract category
-        const prefix = file.name.split("_")[0];
-        const category = DEFAULT_CATEGORIES.some((c) => c.id === prefix)
+        // Extract category (case-insensitive)
+        const prefix = (file.name.split("_")[0] || "").toLowerCase();
+        const category = LOOKBOOK_CATEGORIES.some((c) => c.id === prefix)
           ? prefix
           : "etc";
 
@@ -143,6 +143,7 @@ export default function InspirationGallery({
 
   // 필터링 적용
   useEffect(() => {
+    setSelectedIndex(null);
     if (activeCategory === "전체보기") {
       setGalleryData(allImages);
     } else {
@@ -207,9 +208,7 @@ export default function InspirationGallery({
     return cat.ko || cat.name_ko || cat.displayName || cat.id;
   };
 
-  const catList = categories && categories.length > 0
-    ? [{ id: "전체보기", ko: "전체보기", en: "ALL", zh: "全部" }, ...categories]
-    : DEFAULT_CATEGORIES;
+  const catList = LOOKBOOK_CATEGORIES;
 
   const renderCategoryTabs = () => {
     return (

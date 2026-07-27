@@ -131,7 +131,8 @@ export default function LookbookAdmin({ session }) {
   const handleCategoryChange = async (img, newCategory) => {
     const oldName = img.name;
     const parts = oldName.split('_');
-    const hasCategory = Object.keys(CATEGORY_LABEL).includes(parts[0]);
+    const prefix = (parts[0] || '').toLowerCase();
+    const hasCategory = Object.keys(CATEGORY_LABEL).includes(prefix);
     
     let newName;
     if (hasCategory) {
@@ -402,7 +403,7 @@ export default function LookbookAdmin({ session }) {
                   background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
                   color: 'var(--gold-bright)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold'
                 }}>
-                  {CATEGORY_LABEL[img.name.split('_')[0]] || '기타'}
+                  {CATEGORY_LABEL[img.name.split('_')[0].toLowerCase()] || '기타'}
                 </div>
                 
                 {isSelectMode && (
@@ -453,7 +454,7 @@ export default function LookbookAdmin({ session }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.1)', padding: '12px 24px', borderRadius: '30px', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
             <span style={{ color: 'var(--txt-100)', fontSize: '14px', fontWeight: 'bold' }}>카테고리 변경:</span>
             <select 
-              value={Object.keys(CATEGORY_LABEL).includes(previewItem.name.split('_')[0]) ? previewItem.name.split('_')[0] : 'etc'} 
+              value={Object.keys(CATEGORY_LABEL).includes(previewItem.name.split('_')[0].toLowerCase()) ? previewItem.name.split('_')[0].toLowerCase() : 'etc'} 
               onChange={(e) => handleCategoryChange(previewItem, e.target.value)}
               style={{
                 background: 'rgba(0,0,0,0.5)', color: 'var(--gold-bright)', border: '1px solid var(--bdr-hi)', 
