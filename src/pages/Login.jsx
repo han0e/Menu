@@ -434,6 +434,13 @@ export default function Login() {
             </>
           )}
         </div>
+
+        <div className="login-copyright">
+          <p>© {new Date().getFullYear()} han0e. All rights reserved.</p>
+          <a href="mailto:han0e@kakao.com" className="login-copyright-email">
+            han0e@kakao.com
+          </a>
+        </div>
       </div>
 
       {modalType && (

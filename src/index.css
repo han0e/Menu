@@ -1205,6 +1205,32 @@ body,
   padding: 0 4px;
 }
 
+.login-copyright {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--bdr-lo);
+  font-size: var(--fs-xs);
+  color: var(--txt-50);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+}
+
+.login-copyright-email {
+  color: var(--gold-main);
+  font-size: var(--fs-xs);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.login-copyright-email:hover {
+  color: var(--gold-bright);
+  text-decoration: underline;
+}
+
 /* ── 메인 화면 숨겨진 영역 (결제 내역 보기) ── */
 .secret-zone {
   position: fixed;
